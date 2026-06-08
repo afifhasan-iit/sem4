@@ -1,5 +1,5 @@
 import CoursePage from "../CoursePage";
-import PATTERNS from "../../data/design-pattern";
+import PATTERNS from "../../data/design-patterns";
 import CodeSmells from "../CodeSmells";
 import DesignPatterns from "../DesignPatterns";
 
