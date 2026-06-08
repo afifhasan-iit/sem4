@@ -1,3 +1,5 @@
+'use client';
+
 import CoursePage from "./CoursePage";
 import DesignPatternsTopic from "./topics/DesignPatternsTopic";
 import CodeSmellsTopic from "./topics/CodeSmellsTopic";
