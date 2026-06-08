@@ -32,3 +32,4 @@ Notes
 - The Design Patterns and Code Smells components were provided and wired into the app under `components/` and their routes.
 - Topic data files are under `data/`. For courses without content the arrays are empty so you can fill them later.
 # sem4
+# sem4
