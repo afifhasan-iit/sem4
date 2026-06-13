@@ -10,16 +10,19 @@ type CoursePageProps = {
 
 export default function CoursePage({ course }: CoursePageProps) {
   const [activeTopic, setActiveTopic] = useState<Topic | null>(
-    course.topics[0] ?? null
+    // course.topics[0] ?? null
   );
 
   function showTopic(topic: Topic) {
     setActiveTopic(topic);
+    window.open(`/shortcut/${topic.id}`, "_blank");
   }
 
   return (
     <div className="container">
-      <aside className="sidebar">
+
+         {/* side bar */}
+      <aside className="sidebar">  
         <h3 className="sidebar-title">{course.name}</h3>
         <div className="topic-list">
           {course.topics.length === 0 ? (
@@ -33,7 +36,10 @@ export default function CoursePage({ course }: CoursePageProps) {
                     : "topic-button"
                 }
                 key={topic.id}
-                onClick={() => showTopic(topic)}
+                onClick={
+                  () => showTopic(topic)
+
+                }
               >
                 <strong>{topic.name}</strong>
                 {topic.category && <small>{topic.category}</small>}
