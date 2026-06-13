@@ -11,6 +11,7 @@ const courses = [
   { id: "dbms", name: "DBMS", desc: "Database management systems" },
   { id: "os", name: "Operating Systems", desc: "OS fundamentals and concepts" },
   { id: "business", name: "Business", desc: "Business and software processes" },
+  { id: "development", name: "Development", desc: "Web development practices" },
 ];
 
 export default function LandingPage() {
@@ -25,7 +26,7 @@ export default function LandingPage() {
             <div>
               <h3>{course.name}</h3>
               <p className="muted-text">{course.desc}</p>
-            </div>
+            </div> 
           </Link>
         ))}
       </div>
@@ -37,6 +38,9 @@ export default function LandingPage() {
         </Link>
         <Link className="copy-btn" href="/shortcut/design-patterns">
           View Design Patterns 
+        </Link>
+        <Link className="copy-btn" href="/shortcut/react">
+          React
         </Link>
       </div>
     </div>
