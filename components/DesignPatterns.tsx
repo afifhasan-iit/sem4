@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { useState, useEffect } from "react";
 
 const PATTERNS = {
@@ -6,8 +6,11 @@ const PATTERNS = {
     {
       id: "singleton",
       name: "Singleton",
-      intent: "Ensure a class has only one instance and provide a global access point to it.",
-      analogy: "A country can have only one official government. Regardless of the personal identities of the individuals who form it, 'The Government of X' is always a global point of access that identifies the group in charge.",
+      smell: "Multiple instances of the same class fighting over one shared resource.",
+      intent:
+        "Ensure a class has only one instance and provide a global access point to it.",
+      analogy:
+        "A country can have only one official government. Regardless of the personal identities of the individuals who form it, 'The Government of X' is always a global point of access that identifies the group in charge.",
       when: `When exactly one object needs to coordinate actions across the system — and having more than one instance would cause real problems.
 
 Here's the concrete problem. Your school app has a Logger that writes to a file:
@@ -106,7 +109,12 @@ synchronized means only one thread can enter this method at a time. Slower, but 
         "Requires special treatment in multithreaded environments",
         "Makes unit testing harder — you can't easily substitute a mock",
       ],
-      usecases: ["Logging system (one logger across the whole app)", "Database connection pool", "App configuration/settings manager", "Thread pool"],
+      usecases: [
+        "Logging system (one logger across the whole app)",
+        "Database connection pool",
+        "App configuration/settings manager",
+        "Thread pool",
+      ],
       examples: [
         {
           title: "School Printer",
@@ -286,8 +294,11 @@ public class Main {
     {
       id: "factory-method",
       name: "Factory Method",
-      intent: "Define an interface for creating an object, but let subclasses decide which class to instantiate.",
-      analogy: "A school has a training department that produces programmers. But the primary function of the school is to educate, not to produce programmers specifically. The 'factory method' is the school's enrollment process — different departments enroll different types of students.",
+      smell: "A growing if/else block that picks which class to instantiate — violating Open/Closed every time you add a new type.",
+      intent:
+        "Define an interface for creating an object, but let subclasses decide which class to instantiate.",
+      analogy:
+        "A school has a training department that produces programmers. But the primary function of the school is to educate, not to produce programmers specifically. The 'factory method' is the school's enrollment process — different departments enroll different types of students.",
       when: `When you have code that needs to create objects, but the exact type depends on something that can change — user config, environment, or a subclass decision — and you want to add new types without editing existing working code.
 
 Here's the problem without it. You're building a school notification system:
@@ -408,7 +419,12 @@ EmailService, SMSService, NotificationService — all untouched. This is Open/Cl
         "Code can become complex — many subclasses needed",
         "Can be overkill for simple object creation",
       ],
-      usecases: ["Cross-platform UI element creation", "Notification systems (Email, SMS, Push)", "Document export (PDF, Word, HTML)", "Payment processing (different gateways)"],
+      usecases: [
+        "Cross-platform UI element creation",
+        "Notification systems (Email, SMS, Push)",
+        "Document export (PDF, Word, HTML)",
+        "Payment processing (different gateways)",
+      ],
       examples: [
         {
           title: "School Notification System",
@@ -608,8 +624,11 @@ public class Main {
     {
       id: "abstract-factory",
       name: "Abstract Factory",
-      intent: "Provide an interface for creating families of related or dependent objects without specifying their concrete classes.",
-      analogy: "Imagine a furniture shop with two styles: Modern and Victorian. You need a Chair, Sofa, and Coffee Table in each style. Customers get mad when they receive non-matching furniture. An Abstract Factory ensures that when you pick 'Modern', everything you get is Modern.",
+      smell: "Nothing stops you from accidentally mixing objects from incompatible families (e.g., a Classic button with a Modern textbox).",
+      intent:
+        "Provide an interface for creating families of related or dependent objects without specifying their concrete classes.",
+      analogy:
+        "Imagine a furniture shop with two styles: Modern and Victorian. You need a Chair, Sofa, and Coffee Table in each style. Customers get mad when they receive non-matching furniture. An Abstract Factory ensures that when you pick 'Modern', everything you get is Modern.",
       when: `When you need to create families of related objects that must be used together — and mixing objects from different families would break things or produce inconsistent results.
 
 Here's the concrete problem. Your school app has two UI themes: Classic and Modern. Each theme has its own Button and TextBox. Without Abstract Factory, the client creates them directly:
@@ -727,7 +746,12 @@ Adding a new product type (say, Dropdown) requires adding createDropdown() to th
         "Adding new products requires modifying all factory classes",
         "Code becomes complex with many factory interfaces",
       ],
-      usecases: ["Cross-platform UI toolkits (Windows vs macOS components)", "Game engines (different world themes)", "Document editors (HTML vs PDF rendering)", "Database drivers (MySQL vs PostgreSQL)"],
+      usecases: [
+        "Cross-platform UI toolkits (Windows vs macOS components)",
+        "Game engines (different world themes)",
+        "Document editors (HTML vs PDF rendering)",
+        "Database drivers (MySQL vs PostgreSQL)",
+      ],
       examples: [
         {
           title: "School Theme System",
@@ -949,8 +973,11 @@ public class Main {
     {
       id: "builder",
       name: "Builder",
-      intent: "Separate the construction of a complex object from its representation so the same construction process can create different results.",
-      analogy: "To build a simple house you need: walls, a floor, a door, windows, a roof. But to build a luxury house you also need: a pool, a garage, smart lighting. A Builder lets you use the same construction steps but skip or add steps as needed — without a constructor that takes 15 parameters.",
+      smell: "Telescoping constructor: a method call with 8 parameters where you can't tell what null, false, 0 means without reading the docs.",
+      intent:
+        "Separate the construction of a complex object from its representation so the same construction process can create different results.",
+      analogy:
+        "To build a simple house you need: walls, a floor, a door, windows, a roof. But to build a luxury house you also need: a pool, a garage, smart lighting. A Builder lets you use the same construction steps but skip or add steps as needed — without a constructor that takes 15 parameters.",
       when: `When constructing an object requires many fields — especially when some are optional — and passing them all through a constructor becomes unreadable and error-prone.
 
 Here's the concrete problem. A student enrollment has required fields (name, grade) and optional ones (sport, scholarship, hostel, bus route, locker number). You add them all to the constructor:
@@ -1060,7 +1087,12 @@ If sport() returned void, you couldn't chain — you'd have to write separate li
         "Overall complexity increases due to extra classes",
         "Overkill for simple objects",
       ],
-      usecases: ["Building complex query strings", "Constructing HTTP requests", "Creating test data (test builders)", "Generating complex documents"],
+      usecases: [
+        "Building complex query strings",
+        "Constructing HTTP requests",
+        "Creating test data (test builders)",
+        "Generating complex documents",
+      ],
       examples: [
         {
           title: "Student Enrollment Form",
@@ -1294,8 +1326,11 @@ public class Main {
     {
       id: "prototype",
       name: "Prototype",
-      intent: "Specify the kinds of objects to create using a prototypical instance, and create new objects by copying (cloning) that prototype.",
-      analogy: "In biology, a cell reproduces by copying itself through division. The copy starts as an exact duplicate, then develops its own identity. You don't design a new cell from scratch — you clone the existing one.",
+      smell: "Paying the expensive constructor cost (DB call, file read) over and over for objects that are nearly identical.",
+      intent:
+        "Specify the kinds of objects to create using a prototypical instance, and create new objects by copying (cloning) that prototype.",
+      analogy:
+        "In biology, a cell reproduces by copying itself through division. The copy starts as an exact duplicate, then develops its own identity. You don't design a new cell from scratch — you clone the existing one.",
       when: `When object creation is expensive — meaning the constructor does heavy work like database calls, file reads, network requests, or complex calculations that take real time.
 
 Here's a concrete example. You have a User class whose constructor talks to a database to fetch permissions:
@@ -1491,7 +1526,13 @@ In real Java codebases, the copy constructor is the most common. It's clean, rea
         "Shallow copy trap: List/Map fields share memory unless manually deep-copied",
         "Manual copy approach silently breaks when new fields are added",
       ],
-      usecases: ["User/role objects with expensive permission loading", "Game enemy spawning (clone a pre-configured enemy)", "Document templates", "Test data setup", "Config objects with slight variations"],
+      usecases: [
+        "User/role objects with expensive permission loading",
+        "Game enemy spawning (clone a pre-configured enemy)",
+        "Document templates",
+        "Test data setup",
+        "Config objects with slight variations",
+      ],
       examples: [
         {
           title: "School Exam Paper",
@@ -1723,8 +1764,11 @@ public class Main {
     {
       id: "adapter",
       name: "Adapter",
-      intent: "Convert the interface of a class into another interface that clients expect. Lets incompatible interfaces work together.",
-      analogy: "A power plug adapter — same electricity, different socket shape. Your laptop charger is designed for a UK socket but you're in Bangladesh. The adapter sits between them, translating without changing either side.",
+      smell: "You have a class that does exactly what you need, but its method names don't match — and you can't change either side.",
+      intent:
+        "Convert the interface of a class into another interface that clients expect. Lets incompatible interfaces work together.",
+      analogy:
+        "A power plug adapter — same electricity, different socket shape. Your laptop charger is designed for a UK socket but you're in Bangladesh. The adapter sits between them, translating without changing either side.",
       when: `When you have an existing class that does exactly what you need — but its method names and signatures don't match what your code expects, and you can't change either side.
 
 Here's the concrete problem. Your new school reporting system expects grades as percentages:
@@ -1811,7 +1855,12 @@ If tomorrow you switch from LegacyGradeSystem to a new DatabaseGradeSystem, you 
         "Code complexity increases with added layers",
         "Sometimes a full refactor is simpler",
       ],
-      usecases: ["Integrating legacy code into a new system", "Third-party library integration", "Payment gateway switching", "Converting JSON/XML between systems"],
+      usecases: [
+        "Integrating legacy code into a new system",
+        "Third-party library integration",
+        "Payment gateway switching",
+        "Converting JSON/XML between systems",
+      ],
       examples: [
         {
           title: "School Grade Import",
@@ -1989,8 +2038,11 @@ class BankTransaction {
     {
       id: "bridge",
       name: "Bridge",
-      intent: "Decouple an abstraction from its implementation so the two can vary independently.",
-      analogy: "A TV remote (abstraction) and the TV (implementation). The remote works with any TV. You can swap the remote or swap the TV without affecting the other. Bridge is like replacing the cable between them with a standard plug — both sides evolve independently.",
+      smell: "Class explosion: N shapes × M renderers = N×M subclasses instead of N+M.",
+      intent:
+        "Decouple an abstraction from its implementation so the two can vary independently.",
+      analogy:
+        "A TV remote (abstraction) and the TV (implementation). The remote works with any TV. You can swap the remote or swap the TV without affecting the other. Bridge is like replacing the cable between them with a standard plug — both sides evolve independently.",
       when: `When you have two independent dimensions of variation, and combining them through inheritance creates a class explosion.
 
 Here's the concrete problem. You have shapes: Circle and Square. You also have renderers: Vector and Raster. You start with inheritance:
@@ -2113,7 +2165,12 @@ Total classes: shapes + renderers, not shapes × renderers.`,
         "Makes code more complex by adding more classes",
         "Can be overkill for simple two-variant systems",
       ],
-      usecases: ["Shape + Color rendering", "Notification type + Urgency level", "UI component + Platform (Web, Mobile)", "Database + Query type"],
+      usecases: [
+        "Shape + Color rendering",
+        "Notification type + Urgency level",
+        "UI component + Platform (Web, Mobile)",
+        "Database + Query type",
+      ],
       examples: [
         {
           title: "Shapes with Renderers",
@@ -2319,8 +2376,11 @@ class EventSMSAlert {
     {
       id: "composite",
       name: "Composite",
-      intent: "Compose objects into tree structures to represent part-whole hierarchies. Lets clients treat individual objects and compositions uniformly.",
-      analogy: "A military hierarchy: an army has divisions, divisions have brigades, brigades have platoons, platoons have soldiers. You can give an order to the entire army or a single soldier using the same 'execute order' command.",
+      smell: "You need separate code paths and method calls for individual items vs. groups — but they represent the same concept.",
+      intent:
+        "Compose objects into tree structures to represent part-whole hierarchies. Lets clients treat individual objects and compositions uniformly.",
+      analogy:
+        "A military hierarchy: an army has divisions, divisions have brigades, brigades have platoons, platoons have soldiers. You can give an order to the entire army or a single soldier using the same 'execute order' command.",
       when: `When you have a tree-like structure where individual items and groups of items should be treated the same way by the calling code.
 
 Here's the concrete problem. A school has teachers. A school also has departments that contain teachers. And the school itself contains departments. You want to ask any of them: "what's your total salary cost?"
@@ -2433,7 +2493,12 @@ The client never checks "is this a Teacher or a Department?" It just calls getMo
         "Hard to restrict which components can be in a composite",
         "Can overgeneralize — not every hierarchy benefits from this",
       ],
-      usecases: ["File system (files and folders)", "UI component trees", "Organization charts", "Menus with submenus"],
+      usecases: [
+        "File system (files and folders)",
+        "UI component trees",
+        "Organization charts",
+        "Menus with submenus",
+      ],
       examples: [
         {
           title: "School Department Structure",
@@ -2642,8 +2707,11 @@ class BatchProcessor {
     {
       id: "decorator",
       name: "Decorator",
-      intent: "Attach additional responsibilities to an object dynamically. A flexible alternative to subclassing for extending functionality.",
-      analogy: "A coffee shop: start with a plain Espresso. Wrap it in MilkDecorator (+$0.50). Wrap that in SugarDecorator (+$0.20). Each wrapper adds behavior and cost without changing the original cup. You stack layers like clothing.",
+      smell: "N optional features → 2ᴺ subclasses to cover every combination.",
+      intent:
+        "Attach additional responsibilities to an object dynamically. A flexible alternative to subclassing for extending functionality.",
+      analogy:
+        "A coffee shop: start with a plain Espresso. Wrap it in MilkDecorator (+$0.50). Wrap that in SugarDecorator (+$0.20). Each wrapper adds behavior and cost without changing the original cup. You stack layers like clothing.",
       when: `When you need to add optional behaviors to objects in combinations — and using inheritance to cover every combination would create too many classes.
 
 Here's the concrete problem. A library book can have: a protective cover, a barcode, or a damage note. Any combination is valid:
@@ -2765,7 +2833,12 @@ Same components, different order = different result.`,
         "Order of decorators matters and can be confusing",
         "Many small objects can be hard to debug",
       ],
-      usecases: ["Java I/O streams (BufferedReader wraps FileReader)", "Adding logging/caching to services", "UI widget enhancement", "Notification stacking (Email + SMS + Push)"],
+      usecases: [
+        "Java I/O streams (BufferedReader wraps FileReader)",
+        "Adding logging/caching to services",
+        "UI widget enhancement",
+        "Notification stacking (Email + SMS + Push)",
+      ],
       examples: [
         {
           title: "School Library Book Wrapper",
@@ -2975,8 +3048,10 @@ public class Main {
     {
       id: "facade",
       name: "Facade",
+      smell: "The caller knows too much — it coordinates multiple subsystem classes in a specific sequence that isn't its responsibility.",
       intent: "Provide a simplified interface to a complex subsystem.",
-      analogy: "Calling a bank's customer service. You say 'I want to open an account.' The agent (facade) handles identity verification, credit check, account number generation, and welcome kit — you just give your name.",
+      analogy:
+        "Calling a bank's customer service. You say 'I want to open an account.' The agent (facade) handles identity verification, credit check, account number generation, and welcome kit — you just give your name.",
       when: `When a client needs to interact with several subsystem classes in a specific sequence, and that coordination logic shouldn't be the client's responsibility — especially when many different clients would otherwise duplicate that coordination.
 
 Here's the concrete problem. To admit a student, the caller must:
@@ -3065,7 +3140,12 @@ Facade is not a lock. Developers can still call FormValidator directly if they n
         "Can become a 'God Object' that knows too much",
         "Doesn't prevent direct access to subsystem if needed",
       ],
-      usecases: ["Home theater systems", "Online shopping checkout", "Bank account opening workflow", "Video conversion pipeline"],
+      usecases: [
+        "Home theater systems",
+        "Online shopping checkout",
+        "Bank account opening workflow",
+        "Video conversion pipeline",
+      ],
       examples: [
         {
           title: "School Admission Process",
@@ -3242,8 +3322,11 @@ public class Main {
     {
       id: "flyweight",
       name: "Flyweight",
-      intent: "Use sharing to efficiently support a large number of fine-grained objects by separating intrinsic (shared) state from extrinsic (unique) state.",
-      analogy: "A forest in a game has 1,000,000 trees. Each tree has a type (Oak, Pine), texture, and color — these are the same for all trees of that type. Only position differs. Store one Oak object and reference it from a million trees instead of creating a million full objects.",
+      smell: "Storing duplicate data in thousands of similar objects — the same three fields repeated a million times in memory.",
+      intent:
+        "Use sharing to efficiently support a large number of fine-grained objects by separating intrinsic (shared) state from extrinsic (unique) state.",
+      analogy:
+        "A forest in a game has 1,000,000 trees. Each tree has a type (Oak, Pine), texture, and color — these are the same for all trees of that type. Only position differs. Store one Oak object and reference it from a million trees instead of creating a million full objects.",
       when: `When you need a very large number of objects that share most of their data, and storing all that duplicate data in every single object is consuming too much memory.
 
 Here's the concrete problem. A school distributes textbooks. You model each student's copy as an object:
@@ -3340,7 +3423,12 @@ The savings multiply with scale: 10,000 students across 10 subjects = 1 Textbook
         "Code becomes more complex — state split across two places",
         "CPU time may increase (computing extrinsic state vs. storing it)",
       ],
-      usecases: ["Game particle systems (bullets, sparks)", "Text editor character rendering", "Map tile engines", "UI component instances"],
+      usecases: [
+        "Game particle systems (bullets, sparks)",
+        "Text editor character rendering",
+        "Map tile engines",
+        "UI component instances",
+      ],
       examples: [
         {
           title: "School Textbook Distribution",
@@ -3543,8 +3631,11 @@ public class Main {
     {
       id: "proxy",
       name: "Proxy",
-      intent: "Provide a surrogate or placeholder for another object to control access to it.",
-      analogy: "A credit card is a proxy for your bank account. It has the same interface (pay), but adds features: spending limits, fraud detection, transaction logging — without you touching your actual account directly every time.",
+      smell: "The client hits the real object directly every time — even when the result is identical, access should be restricted, or creation should be deferred.",
+      intent:
+        "Provide a surrogate or placeholder for another object to control access to it.",
+      analogy:
+        "A credit card is a proxy for your bank account. It has the same interface (pay), but adds features: spending limits, fraud detection, transaction logging — without you touching your actual account directly every time.",
       when: `When you want to add behavior — caching, access control, logging, lazy loading — around an existing object, without the client knowing anything changed and without modifying the real object.
 
 Here's the concrete problem. Every time a report generator needs student info, it hits the database:
@@ -3639,7 +3730,13 @@ Both wrap an object. The difference is intent:
         "Response time may increase due to indirection",
         "Code becomes more complex",
       ],
-      usecases: ["Lazy loading (Virtual Proxy)", "Access control (Protection Proxy)", "Remote objects (Remote Proxy)", "Caching (Caching Proxy)", "Logging (Logging Proxy)"],
+      usecases: [
+        "Lazy loading (Virtual Proxy)",
+        "Access control (Protection Proxy)",
+        "Remote objects (Remote Proxy)",
+        "Caching (Caching Proxy)",
+        "Logging (Logging Proxy)",
+      ],
       examples: [
         {
           title: "School Database (Caching Proxy)",
@@ -3835,8 +3932,11 @@ public class Main {
     {
       id: "observer",
       name: "Observer",
-      intent: "Define a one-to-many dependency: when one object changes state, all dependents are notified and updated automatically.",
-      analogy: "A customer wants a new iPhone model arriving at a store. Option 1: visit every day (polling — wasteful). Option 2: store emails all customers (spam). Option 3: customer subscribes to that specific product and gets notified only when it's available. That's the Observer pattern.",
+      smell: "An object that changes state is directly calling all the other objects that react to it — knowing too many of them.",
+      intent:
+        "Define a one-to-many dependency: when one object changes state, all dependents are notified and updated automatically.",
+      analogy:
+        "A customer wants a new iPhone model arriving at a store. Option 1: visit every day (polling — wasteful). Option 2: store emails all customers (spam). Option 3: customer subscribes to that specific product and gets notified only when it's available. That's the Observer pattern.",
       when: `When one object changes state and multiple other objects need to react to that change — but you don't want the changing object to know who those others are or how many there are.
 
 Here's the concrete problem. A bank account balance changes. Three services need to react:
@@ -3943,7 +4043,12 @@ The example above uses push — the subject sends all the data (accountId, newBa
         "Memory leaks if subscribers are not properly removed",
         "Complex chains can be hard to debug",
       ],
-      usecases: ["Event systems (button clicks)", "Model-View in MVC", "Stock price notifications", "Chat messaging systems"],
+      usecases: [
+        "Event systems (button clicks)",
+        "Model-View in MVC",
+        "Stock price notifications",
+        "Chat messaging systems",
+      ],
       examples: [
         {
           title: "School Announcement System",
@@ -4164,8 +4269,11 @@ public class Main {
     {
       id: "strategy",
       name: "Strategy",
-      intent: "Define a family of algorithms, encapsulate each one, and make them interchangeable. Lets the algorithm vary independently from clients that use it.",
-      analogy: "A navigation app (Google Maps style). Users can choose: drive, walk, bike, or public transit. The app's overall logic is the same — show a route. Only the routing algorithm changes. Each is a Strategy you plug in.",
+      smell: "A growing if/else block that selects which algorithm to run — modified every time a new variation is needed.",
+      intent:
+        "Define a family of algorithms, encapsulate each one, and make them interchangeable. Lets the algorithm vary independently from clients that use it.",
+      analogy:
+        "A navigation app (Google Maps style). Users can choose: drive, walk, bike, or public transit. The app's overall logic is the same — show a route. Only the routing algorithm changes. Each is a Strategy you plug in.",
       when: `When you have a class that needs to perform a task, but there are multiple valid ways to do it — and you want to switch between them without rewriting the class or cramming all variants into one big if/else.
 
 Here's the concrete problem. A bank calculates interest differently depending on account type:
@@ -4273,7 +4381,12 @@ Strategy is more flexible. Template Method has less overhead (no extra object).`
         "Many similar classes if differences are small",
         "Overkill if you only have 2 strategies that never change",
       ],
-      usecases: ["Sorting algorithms (quicksort, mergesort)", "Payment methods (card, PayPal, crypto)", "Routing algorithms", "Compression algorithms"],
+      usecases: [
+        "Sorting algorithms (quicksort, mergesort)",
+        "Payment methods (card, PayPal, crypto)",
+        "Routing algorithms",
+        "Compression algorithms",
+      ],
       examples: [
         {
           title: "School Exam Grading",
@@ -4488,8 +4601,11 @@ public class Main {
     {
       id: "command",
       name: "Command",
-      intent: "Encapsulate a request as an object, thereby letting you parameterize clients, queue requests, log them, and support undoable operations.",
-      analogy: "A restaurant order: you sit down, the waiter takes your order on a slip of paper. The slip is the Command. The waiter doesn't cook — they just submit it. The order waits in queue until the chef is ready. The paper slip can be cancelled, re-queued, or logged.",
+      smell: "You need to undo an action, queue it, or log it — but the action is just a method call with no way to store, reverse, or replay it.",
+      intent:
+        "Encapsulate a request as an object, thereby letting you parameterize clients, queue requests, log them, and support undoable operations.",
+      analogy:
+        "A restaurant order: you sit down, the waiter takes your order on a slip of paper. The slip is the Command. The waiter doesn't cook — they just submit it. The order waits in queue until the chef is ready. The paper slip can be cancelled, re-queued, or logged.",
       when: `When you need to treat an action as an object — so you can store it, queue it, log it, delay it, or reverse it. The classic trigger is needing undo/redo.
 
 Here's the concrete problem. A teacher edits a timetable. Without Command:
@@ -4615,7 +4731,12 @@ Command vs Memento:
         "Many small command classes",
         "Undo implementation can be complex",
       ],
-      usecases: ["Text editor undo/redo", "GUI button actions", "Transaction management", "Task queues"],
+      usecases: [
+        "Text editor undo/redo",
+        "GUI button actions",
+        "Transaction management",
+        "Task queues",
+      ],
       examples: [
         {
           title: "School Timetable Editor",
@@ -4857,8 +4978,11 @@ class TransactionProcessor {
     {
       id: "iterator",
       name: "Iterator",
-      intent: "Provide a way to access elements of a collection sequentially without exposing its underlying representation.",
-      analogy: "Different ways to tour Rome: wander on your own, hire a tour guide, or use a GPS app. All three 'iterate' over the sights. The way you traverse is separate from the places themselves.",
+      smell: "The caller needs different traversal code for each collection type — directly accessing internal structure that should be hidden.",
+      intent:
+        "Provide a way to access elements of a collection sequentially without exposing its underlying representation.",
+      analogy:
+        "Different ways to tour Rome: wander on your own, hire a tour guide, or use a GPS app. All three 'iterate' over the sights. The way you traverse is separate from the places themselves.",
       when: `When you have multiple collection types — lists, arrays, trees, linked lists — and you want the code that uses them to work the same way regardless of how the collection stores its data internally.
 
 Here's the concrete problem. A school has two types of rosters: one stored as a sorted ArrayList, another stored as a plain array. A teacher does roll call on both:
@@ -4989,7 +5113,12 @@ Java already has this built in: every Collection implements Iterable, which retu
         "Overkill for simple collections",
         "Less efficient than going directly into a specialized collection",
       ],
-      usecases: ["Collection traversal", "Paginated database results", "Tree traversal (DFS/BFS)", "Stream processing"],
+      usecases: [
+        "Collection traversal",
+        "Paginated database results",
+        "Tree traversal (DFS/BFS)",
+        "Stream processing",
+      ],
       examples: [
         {
           title: "School Class Roll Call",
@@ -5212,8 +5341,11 @@ class Auditor {
     {
       id: "state",
       name: "State",
-      intent: "Allow an object to alter its behavior when its internal state changes. The object will appear to change its class.",
-      analogy: "A smartphone: when unlocked, pressing the camera button opens the camera. When locked, it shows the lock screen. When charging with screen off, it shows a charging animation. Same button, completely different behavior — all based on state.",
+      smell: "Every method has a large if/else or switch on the current state — and every new state means editing every method.",
+      intent:
+        "Allow an object to alter its behavior when its internal state changes. The object will appear to change its class.",
+      analogy:
+        "A smartphone: when unlocked, pressing the camera button opens the camera. When locked, it shows the lock screen. When charging with screen off, it shows a charging animation. Same button, completely different behavior — all based on state.",
       when: `When an object can be in several distinct states, and its behavior changes significantly based on which state it's in — especially when you find yourself writing large if/else or switch blocks that check the current state before every operation.
 
 Here's the concrete problem. A library book can be Available, CheckedOut, or Reserved. Without State:
@@ -5351,7 +5483,13 @@ AvailableState knows "after checkout, I become CheckedOut." CheckedOutState know
         "Overkill if only a few states",
         "State classes can become tightly coupled to Context",
       ],
-      usecases: ["Vending machine", "Traffic lights", "Document workflow (Draft → Review → Published)", "ATM machine states", "TCP connection states"],
+      usecases: [
+        "Vending machine",
+        "Traffic lights",
+        "Document workflow (Draft → Review → Published)",
+        "ATM machine states",
+        "TCP connection states",
+      ],
       examples: [
         {
           title: "School Library Book State",
@@ -5647,8 +5785,11 @@ public class Main {
     {
       id: "template-method",
       name: "Template Method",
-      intent: "Define the skeleton of an algorithm in a base class, deferring some steps to subclasses.",
-      analogy: "A school exam: every exam follows the same process — distribute papers → read instructions → answer questions → collect papers. The structure is fixed. The subject-specific instructions and questions vary. Subclasses fill in the subject parts.",
+      smell: "The same boilerplate steps copy-pasted across multiple subclasses — only one or two steps actually differ.",
+      intent:
+        "Define the skeleton of an algorithm in a base class, deferring some steps to subclasses.",
+      analogy:
+        "A school exam: every exam follows the same process — distribute papers → read instructions → answer questions → collect papers. The structure is fixed. The subject-specific instructions and questions vary. Subclasses fill in the subject parts.",
       when: `When you have several classes that do the same thing in the same sequence, but differ in one or two specific steps — and you're duplicating the shared steps across all of them.
 
 Here's the concrete problem. A school runs different exams. Every exam follows the same sequence: distribute sheets → read general instructions → give subject-specific instructions → answer questions → collect sheets. Only steps 3 and 4 differ per subject.
@@ -5778,7 +5919,12 @@ Subclasses that need it override it. Those that don't, ignore it. This is called
         "Violates Liskov Substitution if subclasses change critical steps",
         "Inheritance-based — less flexible than Strategy",
       ],
-      usecases: ["Data mining/ETL pipelines", "Unit test lifecycle (setUp/test/tearDown)", "Game turn structure", "Report generation steps"],
+      usecases: [
+        "Data mining/ETL pipelines",
+        "Unit test lifecycle (setUp/test/tearDown)",
+        "Game turn structure",
+        "Report generation steps",
+      ],
       examples: [
         {
           title: "School Exam Process",
@@ -5968,8 +6114,11 @@ class HTMLReportGenerator {
     {
       id: "chain-of-responsibility",
       name: "Chain of Responsibility",
-      intent: "Pass a request along a chain of handlers. Each handler decides to process it or pass it along.",
-      analogy: "A school complaint system: student reports to class teacher → department head → vice principal → principal. Each level handles what they can and escalates the rest. The student doesn't pick who handles it — the chain decides.",
+      smell: "Hard-coded escalation logic — one class decides who handles what, making the chain impossible to reconfigure without editing it.",
+      intent:
+        "Pass a request along a chain of handlers. Each handler decides to process it or pass it along.",
+      analogy:
+        "A school complaint system: student reports to class teacher → department head → vice principal → principal. Each level handles what they can and escalates the rest. The student doesn't pick who handles it — the chain decides.",
       when: `When a request might be handled by one of several objects, and you want to decide at runtime which one handles it — without the sender knowing who that is.
 
 Here's the concrete problem. A bank needs approval for transactions based on amount. Without Chain of Responsibility:
@@ -6096,7 +6245,12 @@ If you build a chain where no handler covers a certain case, and no handler call
         "Request may go unhandled if chain is not configured correctly",
         "Hard to debug if chain is long",
       ],
-      usecases: ["Logging levels (DEBUG → INFO → WARN → ERROR)", "UI event bubbling", "HTTP middleware pipelines", "Support ticket escalation"],
+      usecases: [
+        "Logging levels (DEBUG → INFO → WARN → ERROR)",
+        "UI event bubbling",
+        "HTTP middleware pipelines",
+        "Support ticket escalation",
+      ],
       examples: [
         {
           title: "School Complaint Escalation",
@@ -6258,8 +6412,11 @@ public class Main {
     {
       id: "mediator",
       name: "Mediator",
-      intent: "Define an object that encapsulates how a set of objects interact. Promotes loose coupling by keeping objects from referring to each other explicitly.",
-      analogy: "An air traffic control tower. Planes don't talk to each other — they all communicate through the tower. Without it, every pilot would need to track every other plane. The tower centralizes coordination.",
+      smell: "Every object holds references to every other object it communicates with — an N×N dependency web.",
+      intent:
+        "Define an object that encapsulates how a set of objects interact. Promotes loose coupling by keeping objects from referring to each other explicitly.",
+      analogy:
+        "An air traffic control tower. Planes don't talk to each other — they all communicate through the tower. Without it, every pilot would need to track every other plane. The tower centralizes coordination.",
       when: `When you have many objects that communicate with each other, and the communication logic is getting tangled — every object knows about every other object it needs to talk to, creating a web of dependencies.
 
 Here's the concrete problem. A school chat system has Students and Teachers. Without Mediator, each participant holds references to all the others:
@@ -6395,7 +6552,12 @@ If your chat room used Observer, each Student would be a Subject that other Stud
         "Mediator can become a God Object over time",
         "All components depend on the mediator",
       ],
-      usecases: ["Chat rooms (users don't message each other directly)", "Air traffic control", "UI form coordination (checkboxes enabling/disabling fields)", "Event bus / Redux store"],
+      usecases: [
+        "Chat rooms (users don't message each other directly)",
+        "Air traffic control",
+        "UI form coordination (checkboxes enabling/disabling fields)",
+        "Event bus / Redux store",
+      ],
       examples: [
         {
           title: "School Chat Room",
@@ -6628,8 +6790,11 @@ class DebitService {
     {
       id: "memento",
       name: "Memento",
-      intent: "Capture and externalize an object's internal state without violating encapsulation, so it can be restored later.",
-      analogy: "A text editor's undo feature. Every time you make a change, the editor silently saves a snapshot. If you hit Ctrl+Z, it restores the last snapshot. The snapshot (memento) is opaque — you can't read or change it directly, only hand it back.",
+      smell: "To save/restore state, the caretaker reads and writes the object's private fields directly — breaking encapsulation.",
+      intent:
+        "Capture and externalize an object's internal state without violating encapsulation, so it can be restored later.",
+      analogy:
+        "A text editor's undo feature. Every time you make a change, the editor silently saves a snapshot. If you hit Ctrl+Z, it restores the last snapshot. The snapshot (memento) is opaque — you can't read or change it directly, only hand it back.",
       when: `When you need to save and restore an object's state — typically for undo/redo — without exposing the object's internal fields to the code doing the saving.
 
 Here's the concrete problem. A teacher edits student scores. You want undo. The naive approach: the caretaker (history manager) reads and writes the score object's fields directly:
@@ -6752,7 +6917,12 @@ Use Command when you want surgical, action-level undo. Use Memento when the obje
         "Can consume a lot of memory if state is large",
         "Caretakers must manage memento lifecycle to avoid leaks",
       ],
-      usecases: ["Text editor undo/redo", "Game save points", "Database transactions (rollback)", "Form wizard back/forward navigation"],
+      usecases: [
+        "Text editor undo/redo",
+        "Game save points",
+        "Database transactions (rollback)",
+        "Form wizard back/forward navigation",
+      ],
       examples: [
         {
           title: "School Exam Score Editor",
@@ -7012,8 +7182,11 @@ class CheckpointManager {
     {
       id: "visitor",
       name: "Visitor",
-      intent: "Let you add further operations to objects without modifying them. The visitor 'visits' each element and performs an operation.",
-      analogy: "An insurance agent visits buildings. At a residential building, they sell medical insurance. At a bank, theft insurance. At a shop, fire insurance. The buildings don't change — the agent brings the behavior and applies it based on what they visit.",
+      smell: "Element classes keep growing with unrelated methods every time you need a new operation on them.",
+      intent:
+        "Let you add further operations to objects without modifying them. The visitor 'visits' each element and performs an operation.",
+      analogy:
+        "An insurance agent visits buildings. At a residential building, they sell medical insurance. At a bank, theft insurance. At a shop, fire insurance. The buildings don't change — the agent brings the behavior and applies it based on what they visit.",
       when: `When you need to perform multiple distinct, unrelated operations on a set of objects — and you don't want to keep adding new methods to those object classes every time you need a new operation.
 
 Here's the concrete problem. A school has Students, Teachers, and Departments. You need to generate reports — summary report, warning report, PDF export, year-end audit. Without Visitor:
@@ -7160,7 +7333,12 @@ Adding a new Element type = hard, must update every existing Visitor. This is th
         "Adding new element types requires updating all visitors",
         "Visitors may access private state — tight coupling to element internals",
       ],
-      usecases: ["AST traversal in compilers", "Document export (Word, PDF, HTML)", "Tax calculation across product types", "Shape area/perimeter calculations"],
+      usecases: [
+        "AST traversal in compilers",
+        "Document export (Word, PDF, HTML)",
+        "Tax calculation across product types",
+        "Shape area/perimeter calculations",
+      ],
       examples: [
         {
           title: "School Grade Report Visitor",
@@ -7405,8 +7583,11 @@ public class Main {
     {
       id: "interpreter",
       name: "Interpreter",
-      intent: "Define a grammar for a language and provide an interpreter to deal with that grammar.",
-      analogy: "A musician reading sheet music. The notation is the grammar — quarter notes, rests, dynamics are defined rules. The musician is the interpreter who reads the symbols and produces sound. Every symbol maps to a concrete action defined by the grammar.",
+      smell: "Business rules or conditions are hardcoded — you can't compose, reuse, or change them at runtime without editing the code.",
+      intent:
+        "Define a grammar for a language and provide an interpreter to deal with that grammar.",
+      analogy:
+        "A musician reading sheet music. The notation is the grammar — quarter notes, rests, dynamics are defined rules. The musician is the interpreter who reads the symbols and produces sound. Every symbol maps to a concrete action defined by the grammar.",
       when: `When you have a set of rules or expressions that can be combined in different ways, and you want to evaluate them without hardcoding every possible combination.
 
 Here's the concrete problem. A school has honor roll eligibility rules. Today the rule is: GPA >= 3.5 AND absences <= 5. Without Interpreter:
@@ -7544,7 +7725,13 @@ Interpreter is good for simple grammars (a handful of expression types). If your
         "Complex grammars lead to many classes — hard to maintain",
         "Not efficient for complex grammars (use parser generators instead)",
       ],
-      usecases: ["Simple math expression parsers", "Rule engines (IF condition THEN action)", "Regular expression engines", "SQL query parsing", "Configuration DSLs"],
+      usecases: [
+        "Simple math expression parsers",
+        "Rule engines (IF condition THEN action)",
+        "Regular expression engines",
+        "SQL query parsing",
+        "Configuration DSLs",
+      ],
       examples: [
         {
           title: "School Rule Engine",
@@ -7780,9 +7967,24 @@ class TransactionFilter {
 };
 
 const CATEGORY_COLORS = {
-  Creational: { bg: "rgba(55,138,221,0.12)", border: "#378ADD", text: "#378ADD", badge: "rgba(55,138,221,0.18)" },
-  Structural: { bg: "rgba(29,158,117,0.12)", border: "#1D9E75", text: "#1D9E75", badge: "rgba(29,158,117,0.18)" },
-  Behavioral: { bg: "rgba(186,117,23,0.12)", border: "#BA7517", text: "#BA7517", badge: "rgba(186,117,23,0.18)" },
+  Creational: {
+    bg: "rgba(55,138,221,0.12)",
+    border: "#378ADD",
+    text: "#378ADD",
+    badge: "rgba(55,138,221,0.18)",
+  },
+  Structural: {
+    bg: "rgba(29,158,117,0.12)",
+    border: "#1D9E75",
+    text: "#1D9E75",
+    badge: "rgba(29,158,117,0.18)",
+  },
+  Behavioral: {
+    bg: "rgba(186,117,23,0.12)",
+    border: "#BA7517",
+    text: "#BA7517",
+    badge: "rgba(186,117,23,0.18)",
+  },
 };
 
 function CodeBlock({ code }) {
@@ -7797,21 +7999,38 @@ function CodeBlock({ code }) {
       <button
         onClick={copy}
         style={{
-          position: "absolute", top: 8, right: 8, zIndex: 2,
-          background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
-          color: copied ? "#4ade80" : "#aaa", borderRadius: 6, padding: "4px 10px",
-          fontSize: 11, cursor: "pointer", fontFamily: "monospace",
+          position: "absolute",
+          top: 8,
+          right: 8,
+          zIndex: 2,
+          background: "rgba(255,255,255,0.08)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          color: copied ? "#4ade80" : "#aaa",
+          borderRadius: 6,
+          padding: "4px 10px",
+          fontSize: 11,
+          cursor: "pointer",
+          fontFamily: "monospace",
         }}
       >
         {copied ? "✓ copied" : "copy"}
       </button>
-      <pre style={{
-        background: "#0d1117", borderRadius: 8, padding: "1.2rem 1rem",
-        fontSize: 12.5, lineHeight: 1.6, overflowX: "auto", margin: 0,
-        border: "1px solid rgba(255,255,255,0.08)",
-        color: "#e6edf3", fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
-        maxHeight: 500, overflowY: "auto",
-      }}>
+      <pre
+        style={{
+          background: "#0d1117",
+          borderRadius: 8,
+          padding: "1.2rem 1rem",
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          overflowX: "auto",
+          margin: 0,
+          border: "1px solid rgba(255,255,255,0.08)",
+          color: "#e6edf3",
+          fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+          maxHeight: 500,
+          overflowY: "auto",
+        }}
+      >
         <code>{code}</code>
       </pre>
     </div>
@@ -7821,25 +8040,31 @@ function CodeBlock({ code }) {
 export default function DesignPatterns() {
   const [activePattern, setActivePattern] = useState(null);
   const [activeTab, setActiveTab] = useState("explanation");
-  const [expandedCategories, setExpandedCategories] = useState({ Creational: true, Structural: true, Behavioral: true });
+  const [expandedCategories, setExpandedCategories] = useState({
+    Creational: true,
+    Structural: true,
+    Behavioral: true,
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [codeExample, setCodeExample] = useState(0);
   const [codeView, setCodeView] = useState("with");
 
   const allPatterns = Object.values(PATTERNS).flat();
   const current = activePattern
-    ? allPatterns.find(p => p.id === activePattern)
+    ? allPatterns.find((p) => p.id === activePattern)
     : null;
 
   const getCategoryForPattern = (id) => {
     for (const [cat, patterns] of Object.entries(PATTERNS)) {
-      if (patterns.find(p => p.id === id)) return cat;
+      if (patterns.find((p) => p.id === id)) return cat;
     }
     return null;
   };
 
   const category = current ? getCategoryForPattern(current.id) : null;
-  const colors = category ? CATEGORY_COLORS[category] : CATEGORY_COLORS.Creational;
+  const colors = category
+    ? CATEGORY_COLORS[category]
+    : CATEGORY_COLORS.Creational;
 
   useEffect(() => {
     setActiveTab("explanation");
@@ -7848,56 +8073,95 @@ export default function DesignPatterns() {
   }, [activePattern]);
 
   const toggleCategory = (cat) => {
-    setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+    setExpandedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
   };
 
   const selectPattern = (id) => {
     const cat = getCategoryForPattern(id);
-    setExpandedCategories(prev => ({ ...prev, [cat]: true }));
+    setExpandedCategories((prev) => ({ ...prev, [cat]: true }));
     setActivePattern(id);
   };
 
   return (
-    <div style={{
-      display: "flex", minHeight: "100vh",
-      background: "#0d1117", color: "#e6edf3",
-      fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
-    }}>
-
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "#0d1117",
+        color: "#e6edf3",
+        fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
+      }}
+    >
       {/* Sidebar */}
-      <div style={{
-        width: sidebarOpen ? 240 : 48, minWidth: sidebarOpen ? 240 : 48,
-        background: "#161b22", borderRight: "1px solid rgba(255,255,255,0.08)",
-        display: "flex", flexDirection: "column",
-        transition: "width 0.2s, min-width 0.2s",
-        overflow: "hidden", flexShrink: 0,
-        position: "sticky", top: 0, maxHeight: "100vh",
-      }}>
-        <div style={{
-          padding: "14px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          minHeight: 52,
-        }}>
+      <div
+        style={{
+          width: sidebarOpen ? 240 : 48,
+          minWidth: sidebarOpen ? 240 : 48,
+          background: "#161b22",
+          borderRight: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          flexDirection: "column",
+          transition: "width 0.2s, min-width 0.2s",
+          overflow: "hidden",
+          flexShrink: 0,
+          position: "sticky",
+          top: 0,
+          maxHeight: "100vh",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 12px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            minHeight: 52,
+          }}
+        >
           {sidebarOpen && (
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#8b949e", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                color: "#8b949e",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
               Patterns
             </span>
           )}
           <button
-            onClick={() => setSidebarOpen(v => !v)}
+            onClick={() => setSidebarOpen((v) => !v)}
             style={{
-              background: "none", border: "1px solid rgba(255,255,255,0.12)",
-              color: "#8b949e", cursor: "pointer", borderRadius: 6,
-              width: 28, height: 28, display: "flex", alignItems: "center",
-              justifyContent: "center", fontSize: 14, flexShrink: 0,
-              marginLeft: sidebarOpen ? 0 : "auto", marginRight: sidebarOpen ? 0 : "auto",
+              background: "none",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "#8b949e",
+              cursor: "pointer",
+              borderRadius: 6,
+              width: 28,
+              height: 28,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 14,
+              flexShrink: 0,
+              marginLeft: sidebarOpen ? 0 : "auto",
+              marginRight: sidebarOpen ? 0 : "auto",
             }}
           >
             {sidebarOpen ? "←" : "→"}
           </button>
         </div>
 
-        <div style={{ overflowY: "auto", flex: 1, padding: sidebarOpen ? "8px 0" : "8px 0" }}>
+        <div
+          style={{
+            overflowY: "auto",
+            flex: 1,
+            padding: sidebarOpen ? "8px 0" : "8px 0",
+          }}
+        >
           {Object.entries(PATTERNS).map(([cat, patterns]) => {
             const col = CATEGORY_COLORS[cat];
             return (
@@ -7905,42 +8169,68 @@ export default function DesignPatterns() {
                 <button
                   onClick={() => sidebarOpen && toggleCategory(cat)}
                   style={{
-                    width: "100%", background: "none", border: "none",
-                    color: col.text, cursor: sidebarOpen ? "pointer" : "default",
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    color: col.text,
+                    cursor: sidebarOpen ? "pointer" : "default",
                     padding: sidebarOpen ? "7px 16px" : "7px 0",
-                    display: "flex", alignItems: "center", gap: 6,
-                    fontSize: 11, fontWeight: 600, letterSpacing: "0.08em",
-                    textTransform: "uppercase", textAlign: "left",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    textAlign: "left",
                     justifyContent: sidebarOpen ? "flex-start" : "center",
                   }}
                 >
                   {sidebarOpen && (
                     <>
-                      <span style={{ fontSize: 10 }}>{expandedCategories[cat] ? "▼" : "▶"}</span>
+                      <span style={{ fontSize: 10 }}>
+                        {expandedCategories[cat] ? "▼" : "▶"}
+                      </span>
                       {cat}
                     </>
                   )}
                   {!sidebarOpen && (
-                    <span style={{ fontSize: 14 }}>{cat === "Creational" ? "🏗" : cat === "Structural" ? "🧱" : "🔄"}</span>
+                    <span style={{ fontSize: 14 }}>
+                      {cat === "Creational"
+                        ? "🏗"
+                        : cat === "Structural"
+                          ? "🧱"
+                          : "🔄"}
+                    </span>
                   )}
                 </button>
 
-                {sidebarOpen && expandedCategories[cat] && patterns.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => selectPattern(p.id)}
-                    style={{
-                      width: "100%", background: activePattern === p.id ? col.bg : "none",
-                      border: "none", borderLeft: activePattern === p.id ? `2px solid ${col.border}` : "2px solid transparent",
-                      color: activePattern === p.id ? col.text : "#8b949e",
-                      cursor: "pointer", padding: "6px 16px 6px 20px",
-                      textAlign: "left", fontSize: 13,
-                      display: "block", transition: "all 0.15s",
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
+                {sidebarOpen &&
+                  expandedCategories[cat] &&
+                  patterns.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => selectPattern(p.id)}
+                      style={{
+                        width: "100%",
+                        background: activePattern === p.id ? col.bg : "none",
+                        border: "none",
+                        borderLeft:
+                          activePattern === p.id
+                            ? `2px solid ${col.border}`
+                            : "2px solid transparent",
+                        color: activePattern === p.id ? col.text : "#8b949e",
+                        cursor: "pointer",
+                        padding: "6px 16px 6px 20px",
+                        textAlign: "left",
+                        fontSize: 13,
+                        display: "block",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
               </div>
             );
           })}
@@ -7950,25 +8240,61 @@ export default function DesignPatterns() {
       {/* Main Content */}
       <div style={{ flex: 1, overflow: "auto", minWidth: 0 }}>
         {!current ? (
-          <div style={{
-            display: "flex", flexDirection: "column", alignItems: "center",
-            justifyContent: "center", minHeight: "80vh", padding: "2rem",
-            textAlign: "center",
-          }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "80vh",
+              padding: "2rem",
+              textAlign: "center",
+            }}
+          >
             <div style={{ fontSize: 56, marginBottom: 16 }}>📐</div>
-            <h1 style={{ fontSize: 28, fontWeight: 600, color: "#e6edf3", marginBottom: 12 }}>
+            <h1
+              style={{
+                fontSize: 28,
+                fontWeight: 600,
+                color: "#e6edf3",
+                marginBottom: 12,
+              }}
+            >
               Design Patterns
             </h1>
-            <p style={{ color: "#8b949e", maxWidth: 480, lineHeight: 1.7, fontSize: 15 }}>
-              Named, proven solutions to recurring software design problems. Select a pattern from the sidebar to explore its intent, advantages, use cases, and Java code examples.
+            <p
+              style={{
+                color: "#8b949e",
+                maxWidth: 480,
+                lineHeight: 1.7,
+                fontSize: 15,
+              }}
+            >
+              Named, proven solutions to recurring software design problems.
+              Select a pattern from the sidebar to explore its intent,
+              advantages, use cases, and Java code examples.
             </p>
-            <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap", justifyContent: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                marginTop: 24,
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
               {Object.entries(CATEGORY_COLORS).map(([cat, col]) => (
-                <div key={cat} style={{
-                  background: col.bg, border: `1px solid ${col.border}33`,
-                  borderRadius: 8, padding: "8px 16px",
-                  fontSize: 13, color: col.text,
-                }}>
+                <div
+                  key={cat}
+                  style={{
+                    background: col.bg,
+                    border: `1px solid ${col.border}33`,
+                    borderRadius: 8,
+                    padding: "8px 16px",
+                    fontSize: 13,
+                    color: col.text,
+                  }}
+                >
                   {cat} — {PATTERNS[cat].length} patterns
                 </div>
               ))}
@@ -7978,39 +8304,118 @@ export default function DesignPatterns() {
           <div style={{ padding: "2rem 2.5rem", maxWidth: 900 }}>
             {/* Header */}
             <div style={{ marginBottom: "1.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{
-                  background: colors.badge, color: colors.text,
-                  fontSize: 11, fontWeight: 600, padding: "3px 10px",
-                  borderRadius: 20, letterSpacing: "0.06em", textTransform: "uppercase",
-                }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 8,
+                }}
+              >
+                <span
+                  style={{
+                    background: colors.badge,
+                    color: colors.text,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "3px 10px",
+                    borderRadius: 20,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                  }}
+                >
                   {category}
                 </span>
               </div>
-              <h1 style={{ fontSize: 28, fontWeight: 600, color: "#e6edf3", margin: "0 0 8px" }}>
+              <h1
+                style={{
+                  fontSize: 28,
+                  fontWeight: 600,
+                  color: "#e6edf3",
+                  margin: "0 0 8px",
+                }}
+              >
                 {current.name}
               </h1>
-              <p style={{ color: "#8b949e", fontSize: 15, lineHeight: 1.7, margin: 0, borderLeft: `3px solid ${colors.border}`, paddingLeft: 14 }}>
+
+                {/* smell part */}
+                 <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  marginBottom: 10,
+                  background: "rgba(248,113,113,0.08)",
+                  border: "1px solid rgba(248,113,113,0.22)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: "#f87171",
+                    flexShrink: 0,
+                    marginTop: 1,
+                  }}
+                >
+                  🐛
+                </span>
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#fca5a5",
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    fontStyle: "italic",
+                  }}
+                >
+                  {current.smell}
+                </p>
+              </div>
+
+
+              <p
+                style={{
+                  color: "#8b949e",
+                  fontSize: 15,
+                  lineHeight: 1.7,
+                  margin: 0,
+                  borderLeft: `3px solid ${colors.border}`,
+                  paddingLeft: 14,
+                }}
+              >
                 {current.intent}
               </p>
             </div>
 
             {/* Tab Switcher */}
-            <div style={{
-              display: "flex", gap: 0, marginBottom: "2rem",
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
-            }}>
-              {["explanation", "examples"].map(tab => (
+            <div
+              style={{
+                display: "flex",
+                gap: 0,
+                marginBottom: "2rem",
+                borderBottom: "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              {["explanation", "examples"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   style={{
-                    background: "none", border: "none",
-                    borderBottom: activeTab === tab ? `2px solid ${colors.border}` : "2px solid transparent",
+                    background: "none",
+                    border: "none",
+                    borderBottom:
+                      activeTab === tab
+                        ? `2px solid ${colors.border}`
+                        : "2px solid transparent",
                     color: activeTab === tab ? colors.text : "#8b949e",
-                    cursor: "pointer", padding: "10px 20px", fontSize: 14,
+                    cursor: "pointer",
+                    padding: "10px 20px",
+                    fontSize: 14,
                     fontWeight: activeTab === tab ? 600 : 400,
-                    marginBottom: -1, transition: "all 0.15s",
+                    marginBottom: -1,
+                    transition: "all 0.15s",
                     textTransform: "capitalize",
                   }}
                 >
@@ -8021,31 +8426,83 @@ export default function DesignPatterns() {
 
             {/* Explanation Tab */}
             {activeTab === "explanation" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1.5rem",
+                }}
+              >
                 {/* Analogy */}
-                <section style={{
-                  background: colors.bg, border: `1px solid ${colors.border}33`,
-                  borderRadius: 10, padding: "1.2rem 1.4rem",
-                }}>
-                  <h3 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600, color: colors.text, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <section
+                  style={{
+                    background: colors.bg,
+                    border: `1px solid ${colors.border}33`,
+                    borderRadius: 10,
+                    padding: "1.2rem 1.4rem",
+                  }}
+                >
+                  <h3
+                    style={{
+                      margin: "0 0 8px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: colors.text,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
                     Real-World Analogy
                   </h3>
-                  <p style={{ margin: 0, color: "#c9d1d9", lineHeight: 1.7, fontSize: 14 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "#c9d1d9",
+                      lineHeight: 1.7,
+                      fontSize: 14,
+                    }}
+                  >
                     {current.analogy}
                   </p>
                 </section>
 
                 {/* When */}
                 <section>
-                  <h3 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <h3
+                    style={{
+                      margin: "0 0 10px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#8b949e",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
                     When to Use
                   </h3>
                   {current.when.includes("\n") ? (
-                    <pre style={{ margin: 0, color: "#c9d1d9", lineHeight: 1.8, fontSize: 13.5, fontFamily: "inherit", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                    <pre
+                      style={{
+                        margin: 0,
+                        color: "#c9d1d9",
+                        lineHeight: 1.8,
+                        fontSize: 13.5,
+                        fontFamily: "inherit",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {current.when}
                     </pre>
                   ) : (
-                    <p style={{ margin: 0, color: "#c9d1d9", lineHeight: 1.7, fontSize: 14 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        color: "#c9d1d9",
+                        lineHeight: 1.7,
+                        fontSize: 14,
+                      }}
+                    >
                       {current.when}
                     </p>
                   )}
@@ -8053,65 +8510,173 @@ export default function DesignPatterns() {
 
                 {/* How It Works — only for patterns that have it */}
                 {current.howItWorks && (
-                  <section style={{
-                    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 10, padding: "1.2rem 1.4rem",
-                  }}>
-                    <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#e6b450", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                      {current.id === "prototype" ? "How Cloning Actually Works" : "How It Actually Works"}
+                  <section
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 10,
+                      padding: "1.2rem 1.4rem",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#e6b450",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      {current.id === "prototype"
+                        ? "How Cloning Actually Works"
+                        : "How It Actually Works"}
                     </h3>
-                    <pre style={{ margin: 0, color: "#c9d1d9", lineHeight: 1.8, fontSize: 13.5, fontFamily: "inherit", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                    <pre
+                      style={{
+                        margin: 0,
+                        color: "#c9d1d9",
+                        lineHeight: 1.8,
+                        fontSize: 13.5,
+                        fontFamily: "inherit",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {current.howItWorks}
                     </pre>
                   </section>
                 )}
 
                 {/* Alternatives — only for patterns that have it */}
-                {('alternatives' in (current as any)) && (
-                  <section style={{
-                    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 10, padding: "1.2rem 1.4rem",
-                  }}>
-                    <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#79c0ff", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {"alternatives" in (current as any) && (
+                  <section
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 10,
+                      padding: "1.2rem 1.4rem",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#79c0ff",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
                       Other Ways to Clone
                     </h3>
-                    <pre style={{ margin: 0, color: "#c9d1d9", lineHeight: 1.8, fontSize: 13.5, fontFamily: "inherit", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                    <pre
+                      style={{
+                        margin: 0,
+                        color: "#c9d1d9",
+                        lineHeight: 1.8,
+                        fontSize: 13.5,
+                        fontFamily: "inherit",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {(current as any).alternatives}
                     </pre>
                   </section>
                 )}
 
                 {/* Advantages & Disadvantages */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.2rem" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "1.2rem",
+                  }}
+                >
                   <section>
-                    <h3 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "#4ade80", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <h3
+                      style={{
+                        margin: "0 0 10px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#4ade80",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
                       ✓ Advantages
                     </h3>
-                    <ul style={{ margin: 0, padding: "0 0 0 1rem", color: "#c9d1d9", lineHeight: 1.8, fontSize: 14 }}>
-                      {current.advantages.map((a, i) => <li key={i}>{a}</li>)}
+                    <ul
+                      style={{
+                        margin: 0,
+                        padding: "0 0 0 1rem",
+                        color: "#c9d1d9",
+                        lineHeight: 1.8,
+                        fontSize: 14,
+                      }}
+                    >
+                      {current.advantages.map((a, i) => (
+                        <li key={i}>{a}</li>
+                      ))}
                     </ul>
                   </section>
                   <section>
-                    <h3 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <h3
+                      style={{
+                        margin: "0 0 10px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#f87171",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
                       ✗ Disadvantages
                     </h3>
-                    <ul style={{ margin: 0, padding: "0 0 0 1rem", color: "#c9d1d9", lineHeight: 1.8, fontSize: 14 }}>
-                      {current.disadvantages.map((d, i) => <li key={i}>{d}</li>)}
+                    <ul
+                      style={{
+                        margin: 0,
+                        padding: "0 0 0 1rem",
+                        color: "#c9d1d9",
+                        lineHeight: 1.8,
+                        fontSize: 14,
+                      }}
+                    >
+                      {current.disadvantages.map((d, i) => (
+                        <li key={i}>{d}</li>
+                      ))}
                     </ul>
                   </section>
                 </div>
 
                 {/* Use Cases */}
                 <section>
-                  <h3 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <h3
+                    style={{
+                      margin: "0 0 10px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#8b949e",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
                     Common Use Cases
                   </h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {current.usecases.map((u, i) => (
-                      <span key={i} style={{
-                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                        borderRadius: 6, padding: "4px 12px", fontSize: 13, color: "#c9d1d9",
-                      }}>
+                      <span
+                        key={i}
+                        style={{
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 6,
+                          padding: "4px 12px",
+                          fontSize: 13,
+                          color: "#c9d1d9",
+                        }}
+                      >
                         {u}
                       </span>
                     ))}
@@ -8124,17 +8689,31 @@ export default function DesignPatterns() {
             {activeTab === "examples" && (
               <div>
                 {/* Example selector */}
-                <div style={{ display: "flex", gap: 8, marginBottom: "1.5rem" }}>
+                <div
+                  style={{ display: "flex", gap: 8, marginBottom: "1.5rem" }}
+                >
                   {current.examples.map((ex, i) => (
                     <button
                       key={i}
-                      onClick={() => { setCodeExample(i); setCodeView("with"); }}
+                      onClick={() => {
+                        setCodeExample(i);
+                        setCodeView("with");
+                      }}
                       style={{
-                        background: codeExample === i ? colors.bg : "rgba(255,255,255,0.03)",
-                        border: codeExample === i ? `1px solid ${colors.border}` : "1px solid rgba(255,255,255,0.1)",
+                        background:
+                          codeExample === i
+                            ? colors.bg
+                            : "rgba(255,255,255,0.03)",
+                        border:
+                          codeExample === i
+                            ? `1px solid ${colors.border}`
+                            : "1px solid rgba(255,255,255,0.1)",
                         color: codeExample === i ? colors.text : "#8b949e",
-                        cursor: "pointer", padding: "7px 16px", borderRadius: 8,
-                        fontSize: 13, fontWeight: codeExample === i ? 600 : 400,
+                        cursor: "pointer",
+                        padding: "7px 16px",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: codeExample === i ? 600 : 400,
                       }}
                     >
                       {ex.title}
@@ -8143,21 +8722,34 @@ export default function DesignPatterns() {
                 </div>
 
                 {/* Example desc */}
-                <p style={{
-                  color: "#8b949e", fontSize: 14, lineHeight: 1.7,
-                  marginBottom: "1.5rem", background: "rgba(255,255,255,0.03)",
-                  padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)",
-                }}>
+                <p
+                  style={{
+                    color: "#8b949e",
+                    fontSize: 14,
+                    lineHeight: 1.7,
+                    marginBottom: "1.5rem",
+                    background: "rgba(255,255,255,0.03)",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.07)",
+                  }}
+                >
                   {current.examples[codeExample].desc}
                 </p>
 
                 {/* With/Without toggle */}
-                <div style={{
-                  display: "flex", gap: 0, marginBottom: "1.2rem",
-                  background: "rgba(255,255,255,0.04)",
-                  borderRadius: 8, padding: 4, width: "fit-content",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 0,
+                    marginBottom: "1.2rem",
+                    background: "rgba(255,255,255,0.04)",
+                    borderRadius: 8,
+                    padding: 4,
+                    width: "fit-content",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
                   {[
                     { key: "with", label: "✓ With Pattern" },
                     { key: "without", label: "✗ Without Pattern" },
@@ -8166,17 +8758,27 @@ export default function DesignPatterns() {
                       key={key}
                       onClick={() => setCodeView(key)}
                       style={{
-                        background: codeView === key
-                          ? (key === "with" ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)")
-                          : "none",
-                        border: codeView === key
-                          ? `1px solid ${key === "with" ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.3)"}`
-                          : "1px solid transparent",
-                        color: codeView === key
-                          ? (key === "with" ? "#4ade80" : "#f87171")
-                          : "#8b949e",
-                        cursor: "pointer", padding: "6px 18px", borderRadius: 6,
-                        fontSize: 13, fontWeight: codeView === key ? 600 : 400,
+                        background:
+                          codeView === key
+                            ? key === "with"
+                              ? "rgba(74,222,128,0.12)"
+                              : "rgba(248,113,113,0.12)"
+                            : "none",
+                        border:
+                          codeView === key
+                            ? `1px solid ${key === "with" ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.3)"}`
+                            : "1px solid transparent",
+                        color:
+                          codeView === key
+                            ? key === "with"
+                              ? "#4ade80"
+                              : "#f87171"
+                            : "#8b949e",
+                        cursor: "pointer",
+                        padding: "6px 18px",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: codeView === key ? 600 : 400,
                       }}
                     >
                       {label}
@@ -8186,23 +8788,41 @@ export default function DesignPatterns() {
 
                 {codeView === "with" ? (
                   <>
-                    <div style={{
-                      fontSize: 12, color: "#4ade80", marginBottom: 6, fontWeight: 500,
-                      display: "flex", alignItems: "center", gap: 6,
-                    }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#4ade80",
+                        marginBottom: 6,
+                        fontWeight: 500,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
                       <span>✓</span> Implementing the {current.name} pattern
                     </div>
-                    <CodeBlock code={current.examples[codeExample].withPattern} />
+                    <CodeBlock
+                      code={current.examples[codeExample].withPattern}
+                    />
                   </>
                 ) : (
                   <>
-                    <div style={{
-                      fontSize: 12, color: "#f87171", marginBottom: 6, fontWeight: 500,
-                      display: "flex", alignItems: "center", gap: 6,
-                    }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#f87171",
+                        marginBottom: 6,
+                        fontWeight: 500,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
                       <span>✗</span> Without the pattern — what goes wrong
                     </div>
-                    <CodeBlock code={current.examples[codeExample].withoutPattern} />
+                    <CodeBlock
+                      code={current.examples[codeExample].withoutPattern}
+                    />
                   </>
                 )}
               </div>
