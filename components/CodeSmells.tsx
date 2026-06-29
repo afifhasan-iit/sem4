@@ -1,4 +1,4 @@
-'use client'
+'use client';
 import { useState } from "react";
 
 type CodeSmell = {
@@ -19,7 +19,7 @@ const smells: CodeSmell[] = [
   {
     category: "Bloaters", categoryIcon: "🧱",
     name: "Long Method",
-    subtitle: "A method that has grown too large to understand at a glance",
+    subtitle: "A method doing so many things at once that you can't understand, test, or change any one part without reading all of it.",
     explanation: "When a method keeps accumulating logic over time — more conditions, more loops, more edge cases — it eventually becomes a wall of code. Nobody wants to read a 200-line function just to change one small behavior. Long methods are hard to test, harder to name, and worst of all, they encourage developers to keep dumping code in because \"it's already messy anyway.\" The sweet spot is a method short enough that its name perfectly describes everything it does.",
     tags: ["Readability", "Maintainability", "SRP"],
     badNote: "One method doing validation, pricing, persistence AND email — four responsibilities jammed together. Change one rule and you risk breaking the others.",
@@ -95,7 +95,7 @@ void notifyCustomer(Order order, double total) {
   {
     category: "Bloaters", categoryIcon: "🧱",
     name: "Large Class",
-    subtitle: "A class that has taken on too many responsibilities",
+    subtitle: "A class handling auth, billing, notifications, and more — so many responsibilities that no one really knows what it 'is' anymore.",
     explanation: "A class starts simple — maybe it handles user authentication. Then someone adds email preferences, then notification settings, then profile pictures. Before long it has 40 fields and 80 methods and no one really knows what it \"is\" anymore. A Large Class is a sign that several distinct concepts got crammed into one place. When you find yourself thinking \"this class handles A... and also B... and C too,\" that's the moment to split.",
     tags: ["SRP", "Cohesion", "God Object"],
     badNote: "UserManager is a God Object — it owns authentication, billing, notifications AND audit logging.",
@@ -164,7 +164,7 @@ class AuditLog {
   {
     category: "Bloaters", categoryIcon: "🧱",
     name: "Primitive Obsession",
-    subtitle: "Using raw primitives instead of small domain objects",
+    subtitle: "Using raw strings and doubles for domain concepts like Money or PhoneNumber, so nothing validates them and the compiler can't catch swapped arguments.",
     explanation: "It feels natural to represent a phone number as a String, or money as a double. But primitives have no behavior — you can't validate them, format them, or enforce rules on them. When your codebase is littered with Strings that mean \"phone numbers\" and doubles that mean \"prices in USD,\" bugs creep in. Tiny value objects cost almost nothing and give you enormous safety.",
     tags: ["Type Safety", "Domain Modeling", "Value Objects"],
     badNote: "Nothing stops a caller from passing a negative price, a malformed phone number, or mixing up USD and EUR.",
@@ -234,7 +234,7 @@ void ship(CustomerId id, Money amount, PhoneNumber phone) {
   {
     category: "Bloaters", categoryIcon: "🧱",
     name: "Long Parameter List",
-    subtitle: "A method that demands too many arguments",
+    subtitle: "A function with so many arguments that callers forget the order, silently swap same-typed values, and the call site reads like a random sequence of literals.",
     explanation: "The more parameters a function has, the harder it is to call correctly. With four or more arguments, you start forgetting the order, accidentally swapping values of the same type, and writing calls that look like random number sequences. Long parameter lists usually mean the function is doing too much, or that a group of those parameters naturally belong together as an object.",
     tags: ["API Design", "Readability", "Coupling"],
     badNote: "Eight positional arguments. Can you tell which boolean is emailVerified and which is isAdmin just by looking at the call site?",
@@ -294,7 +294,7 @@ createUser(req);`
   {
     category: "Bloaters", categoryIcon: "🧱",
     name: "Data Clumps",
-    subtitle: "Groups of data that always travel together but aren't encapsulated",
+    subtitle: "The same group of fields (like street, city, zip) that always appear together across multiple classes and method signatures, begging to become their own object.",
     explanation: "You notice that three fields — street, city, zipCode — appear together in five different classes and eight different method signatures. They're never used apart. That's not a coincidence, that's a concept trying to become a class. Data clumps are pre-objects waiting to be born. Giving them a home reduces duplication, makes intent clearer, and gives you one place to put validation or utility methods for that group.",
     tags: ["Cohesion", "DRY", "Encapsulation"],
     badNote: "The same four address fields appear in Customer, Order, and Invoice. Rename one and you update three classes.",
@@ -361,7 +361,7 @@ void printLabel(Address addr) { ... }`
   {
     category: "OO Abusers", categoryIcon: "🔀",
     name: "Switch Statements",
-    subtitle: "Repeated type-checking logic that should live in polymorphism",
+    subtitle: "The same switch-on-type logic duplicated across area(), label(), and color() — add a new type and you must hunt down and patch every copy.",
     explanation: "A switch on a type field isn't inherently evil, but when that switch appears in five different places — computing price, formatting display, sending notifications, choosing icons — you have a problem. Add a new type and you're hunting through the codebase patching every switch. Polymorphism was designed exactly for this: put the behavior on the types themselves and let dispatch happen automatically.",
     tags: ["Polymorphism", "OCP", "Type Dispatch"],
     badNote: "The same switch logic is duplicated in area(), label(), AND color(). Add a Triangle and you must patch all three.",
@@ -432,7 +432,7 @@ class Triangle extends Shape {
   {
     category: "OO Abusers", categoryIcon: "🔀",
     name: "Temporary Field",
-    subtitle: "Instance fields that are only set and used in certain scenarios",
+    subtitle: "Instance fields that are null most of the time and only mean something inside one specific method — hidden state that makes the object untrustworthy to read.",
     explanation: "A class has a field that sits null 90% of the time, then gets populated inside one specific method, used briefly, and becomes meaningless again. This is hidden state — you can't look at an instance and trust that its fields mean anything without knowing which code path was taken. These temporary values usually belong in a local variable or a dedicated context object.",
     tags: ["State Management", "Null Safety", "Clarity"],
     badNote: "reportLines and reportTitle are null after construction. Any method that accidentally reads them at the wrong time gets a NullPointerException.",
@@ -499,7 +499,7 @@ class ReportGenerator {
   {
     category: "OO Abusers", categoryIcon: "🔀",
     name: "Refused Bequest",
-    subtitle: "A subclass that inherits methods it doesn't need or want",
+    subtitle: "A subclass that inherits a parent's methods only to override them all with 'UnsupportedOperationException' — breaking the LSP and lying about what it is.",
     explanation: "Inheritance is a promise: \"I am a kind of you, so I do everything you do.\" Refused Bequest breaks that promise — the subclass inherits a bunch of methods, overrides half of them with empty bodies or exceptions, and silently pretends to be something it isn't. This violates the Liskov Substitution Principle. Usually the fix is to rethink the hierarchy: maybe the relationship should be composition, or the shared behavior should live in an interface.",
     tags: ["LSP", "Inheritance", "Composition"],
     badNote: "ReadOnlyList extends ArrayList but refuses 10+ methods with exceptions. You can pass it anywhere a List is expected and get a runtime crash.",
@@ -560,7 +560,7 @@ names.add("Alice"); // ✖ COMPILE ERROR`
   {
     category: "OO Abusers", categoryIcon: "🔀",
     name: "Alternative Classes with Different Interfaces",
-    subtitle: "Two classes that do the same thing under different names",
+    subtitle: "Two classes doing the same job under different method names (send vs dispatch), so callers can't swap them, mock them uniformly, or treat them as the same concept.",
     explanation: "You have EmailSender with a send() method and MailDispatcher with a dispatch() method. They do the same job. No one decided to unify them, so both exist and callers have to know which one to use where. This is a missed abstraction — either these classes should share an interface, or one should be removed.",
     tags: ["Abstraction", "Interface Design", "DRY"],
     badNote: "Both classes send emails but have different method names. You can't swap one for the other or mock either cleanly in tests.",
@@ -622,7 +622,7 @@ class WelcomeService {
   {
     category: "Change Preventers", categoryIcon: "🔒",
     name: "Divergent Change",
-    subtitle: "One class changes for multiple unrelated reasons",
+    subtitle: "One class you must open when auth rules change, AND when report formats change, AND when export destinations change — it diverges in every direction.",
     explanation: "Divergent Change is the flip side of the Single Responsibility Principle violation: one class has to be opened and edited every time you change reporting logic, AND every time payment rules change, AND every time a new file format is supported. The symptom is a class that spans multiple \"reasons to change.\" The fix is to extract cohesive groupings.",
     tags: ["SRP", "Cohesion", "Modularity"],
     badNote: "OrderService is touched when auth logic changes, when report formats change, AND when export destinations change.",
@@ -675,7 +675,7 @@ class ExportService {
   {
     category: "Change Preventers", categoryIcon: "🔒",
     name: "Shotgun Surgery",
-    subtitle: "One change requires modifying many unrelated classes",
+    subtitle: "One logical change — like adding a correlationId to audit logs — that forces you to open and edit ten unrelated classes, any one of which you might miss.",
     explanation: "One conceptual change — say, adding a timestamp to audit logs — forces you to open ten different classes scattered across the codebase. Each of those ten edits is a risk: you might miss one, or introduce a subtle inconsistency. Shotgun Surgery usually signals that behavior which should be centralized has been copy-pasted into many places over time.",
     tags: ["DRY", "Coupling", "Centralization"],
     badNote: "Adding a correlationId to audit logs means opening UserService, OrderService, PaymentService — and hoping you don't miss one.",
@@ -758,7 +758,7 @@ class PaymentService {
   {
     category: "Change Preventers", categoryIcon: "🔒",
     name: "Parallel Inheritance Hierarchies",
-    subtitle: "Every new subclass in one hierarchy demands a matching subclass in another",
+    subtitle: "Adding a new Shape forces you to also add a new ShapeRenderer — two hierarchies locked in lockstep, where missing one class causes a silent runtime crash.",
     explanation: "You have a Shape hierarchy and a ShapeRenderer hierarchy that must grow in lockstep. Every time you add a new Shape, you must also add a new Renderer. This is coupling across hierarchies that compounds your maintenance burden. The fix is usually to fold the behavior back into the type, or use a pattern like Visitor or Strategy to break the dependency.",
     tags: ["Hierarchy Design", "Coupling", "Visitor Pattern"],
     badNote: "Two hierarchies that must grow in lockstep. Miss a Renderer when adding a Shape and you get a runtime crash.",
@@ -823,7 +823,7 @@ class Pentagon implements Shape {
   {
     category: "Dispensables", categoryIcon: "🗑️",
     name: "Comments",
-    subtitle: "Comments that explain what the code does instead of why it does it",
+    subtitle: "Comments that narrate what the next line does (// loop through rows) instead of explaining why a decision was made — a sign the code itself needs better names.",
     explanation: "Comments aren't bad by nature — they're bad when they're doing a job that the code itself should do. When you need a comment to explain what a block does, that's often a sign you need a better method name. The worst kind are outdated comments that describe code that no longer exists — they actively mislead. Use comments to explain why, not what.",
     tags: ["Readability", "Self-documenting Code", "Naming"],
     badNote: "Every comment here explains what the next line does — which the code already says. The method name p() tells you nothing.",
@@ -881,7 +881,7 @@ boolean isAccountActive(User u) {
   {
     category: "Dispensables", categoryIcon: "🗑️",
     name: "Duplicate Code",
-    subtitle: "The same logic copy-pasted in multiple places",
+    subtitle: "The same pricing logic copy-pasted into three checkout classes — fix a bug in one and the other two still carry the old, broken version.",
     explanation: "Duplication is the root of so many bugs. When you copy-paste logic and later find a bug in it, you have to remember every place it lives. You almost certainly won't. DRY — Don't Repeat Yourself — isn't just about elegance, it's about having one authoritative source of truth for every piece of logic.",
     tags: ["DRY", "Maintainability", "Bug Risk"],
     badNote: "The discount logic is copied verbatim in three places. Change the membership discount and you have three files to edit — and you'll miss at least one.",
@@ -948,7 +948,7 @@ class MobileCheckout {
   {
     category: "Dispensables", categoryIcon: "🗑️",
     name: "Lazy Class",
-    subtitle: "A class that doesn't do enough to justify its existence",
+    subtitle: "A whole class, file, and import just to wrap one trivial string concatenation — overhead with no payoff, deleted the moment you apply YAGNI.",
     explanation: "Every class you add is a class someone has to understand. If a class exists to wrap a single method, or to hold one field, and nothing about its lifecycle or purpose makes it truly necessary, it's just overhead. Maybe it was created in anticipation of future growth that never came. YAGNI — You Aren't Gonna Need It. If it doesn't earn its place, inline its logic and delete it.",
     tags: ["Simplicity", "YAGNI", "Overhead"],
     badNote: "NameFormatter is a whole class, a whole file, a whole import — for one trivial string concatenation.",
@@ -1005,7 +1005,7 @@ class UserController {
   {
     category: "Dispensables", categoryIcon: "🗑️",
     name: "Data Class",
-    subtitle: "A class with fields and getters/setters but no real behavior",
+    subtitle: "A class that is just a bag of getters and setters with no behavior, forcing external classes to reach in and operate on its data instead of asking it to do things.",
     explanation: "A Data Class is just a bag of data — fields, getters, setters — and nothing else. Other classes manipulate it externally. This violates encapsulation: the data and the logic that belongs with it are separated. Often the behavior that operates on the data class should be moved into it. Simple DTOs at system boundaries are fine — but inside your domain model, a class without behavior is a missed opportunity.",
     tags: ["Encapsulation", "Behavior", "Domain Model"],
     badNote: "Rectangle is pure data. AreaCalculator, PerimeterCalculator, and SquareChecker all know about Rectangle's internals.",
@@ -1080,7 +1080,7 @@ System.out.println(r.scale(2));   // Rectangle(8.0 × 8.0)`
   {
     category: "Dispensables", categoryIcon: "🗑️",
     name: "Dead Code",
-    subtitle: "Code that is never executed and serves no purpose",
+    subtitle: "Methods no one calls, branches that can never execute, and fields assigned but never read — clutter that makes readers wonder what they're missing.",
     explanation: "Dead code is code that can never be reached: a method no one calls, a branch that's always false, a variable assigned but never read. It clutters the codebase and makes readers wonder if they're missing something. Version control exists precisely so you can delete with confidence — the history is always there if you need to revisit.",
     tags: ["Cleanliness", "Complexity", "Cognitive Load"],
     badNote: "Three forms of dead code: an unreachable else branch, a deprecated method nobody calls, and a field assigned but never read.",
@@ -1141,7 +1141,7 @@ System.out.println(r.scale(2));   // Rectangle(8.0 × 8.0)`
   {
     category: "Dispensables", categoryIcon: "🗑️",
     name: "Speculative Generality",
-    subtitle: "Abstraction added for imagined future needs that never arrive",
+    subtitle: "Five abstract classes built for a multi-provider future that never arrived — new devs must wade through layers of indirection just to trace one SMTP call.",
     explanation: "\"We might need to support multiple databases someday\" — so a 5-class abstraction layer gets built. Years later, there's only ever been one database, and new developers have to wade through four interfaces and two abstract classes to understand one SQL query. YAGNI — You Aren't Gonna Need It. Build for what you need today. Pre-emptive abstraction is technical debt paid before any value is received.",
     tags: ["YAGNI", "Over-engineering", "Simplicity"],
     badNote: "Five classes to send one email. Every call bounces through AbstractMessageSender → AbstractAsyncSender. There is exactly one provider.",
@@ -1209,7 +1209,7 @@ class SmtpEmailSender extends AbstractAsyncSender
   {
     category: "Couplers", categoryIcon: "🔗",
     name: "Feature Envy",
-    subtitle: "A method that is more interested in another class's data than its own",
+    subtitle: "A method that lives in Order but spends all its time calling customer.getAddress().getCountry() and customer.getMembership().getTier() — it clearly belongs in Customer.",
     explanation: "A method that keeps reaching into another object to grab its data is a method that belongs somewhere else. If calculateShipping() lives in Order but spends all its time calling customer.getAddress().getCountry(), customer.getMembership().getTier(), and customer.isPrime() — it envies Customer. Methods should work with the data of the class they live in.",
     tags: ["Coupling", "Cohesion", "Law of Demeter"],
     badNote: "calculateShipping() lives in Order but touches 6 things from Customer. It belongs somewhere else.",
@@ -1278,7 +1278,7 @@ class Order {
   {
     category: "Couplers", categoryIcon: "🔗",
     name: "Inappropriate Intimacy",
-    subtitle: "Two classes that know too much about each other's internals",
+    subtitle: "OrderProcessor directly reads and mutates InventoryManager's private fields — so tightly entangled that refactoring one class always breaks the other.",
     explanation: "Some classes become like clingy friends — they dig into each other's private fields, call each other's internal helpers, and get entangled at every level. This makes them impossible to change independently. Classes should communicate through clean, public interfaces — not back-channel intimacy.",
     tags: ["Encapsulation", "Coupling", "Interface Design"],
     badNote: "OrderProcessor directly reads and mutates InventoryManager's private fields. Any refactor of InventoryManager breaks OrderProcessor immediately.",
@@ -1343,7 +1343,7 @@ class OrderProcessor {
   {
     category: "Couplers", categoryIcon: "🔗",
     name: "Message Chains",
-    subtitle: "A long chain of calls navigating through intermediate objects",
+    subtitle: "order.getCustomer().getAddress().getCountry().getIsoCode() — every dot is a dependency on an internal structure, so changing any link in the chain breaks the caller.",
     explanation: "a.getB().getC().getD().doSomething() — each dot is a dependency on the internal structure of the object before it. Change any link and the chain breaks. It's a violation of the Law of Demeter: a method should only talk to its immediate collaborators, not navigate deep into their object graphs.",
     tags: ["Law of Demeter", "Coupling", "Navigation"],
     badNote: "The controller knows that an Order has a Customer, a Customer has an Address, and an Address has a Country. Change any relationship and the controller breaks.",
@@ -1428,7 +1428,7 @@ class OrderController {
   {
     category: "Couplers", categoryIcon: "🔗",
     name: "Middle Man",
-    subtitle: "A class that exists only to delegate to another class",
+    subtitle: "A class with eight methods where every single one just calls the same method on another object — pure indirection with no logic added, just an extra file to navigate.",
     explanation: "Delegation is fine when a class adds value on top of what it delegates to. But when a class has ten methods and every single one just calls the same method on another object — it's a Middle Man. It adds a layer of indirection with no benefit, just extra files to navigate and extra confusion about why it exists.",
     tags: ["Indirection", "Simplicity", "Delegation"],
     badNote: "PersonService has 8 methods. Every single one just calls the same method on Person. Zero logic added.",
@@ -1491,7 +1491,7 @@ class CachedPersonService {
   {
     category: "Couplers", categoryIcon: "🔗",
     name: "Incomplete Library Class",
-    subtitle: "A library class that doesn't provide what you need, so you hack around it",
+    subtitle: "A third-party class that almost does what you need, so you scatter static utility methods around it — hacks that break on every library upgrade.",
     explanation: "You're using a third-party library and it almost does what you need — but not quite. So you start writing static utility methods that operate on library objects, or you subclass library classes to bolt on missing behavior. These hacks accumulate. When the library updates, they break. The cleaner solution is to wrap the library in your own abstraction (Adapter pattern) so your additions live in a controlled, maintainable place.",
     tags: ["Library Integration", "Adapter Pattern", "Encapsulation"],
     badNote: "Static utility methods all depend on Apache Pair's internals. Upgrade the library and every PairUtils method might break.",
@@ -1562,14 +1562,15 @@ var swapped = pair.swap();
   },
 ];
 
-const categories: Array<{ name: string; icon: string; items: CodeSmell[] }> = [];
-const catMap: Record<string, { name: string; icon: string; items: CodeSmell[] }> = {};
+const categories = [];
+const catMap = {};
 smells.forEach((s, i) => {
+  s._index = i;
   if (!catMap[s.category]) {
     catMap[s.category] = { name: s.category, icon: s.categoryIcon, items: [] };
     categories.push(catMap[s.category]);
   }
-  catMap[s.category].items.push({ ...s, _index: i });
+  catMap[s.category].items.push(s);
 });
 
 const COLORS = {
@@ -1723,6 +1724,31 @@ function NavBtn({ onClick, disabled, children }) {
   );
 }
 
+function SmellRow({ smell, onSelect }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex", alignItems: "baseline", gap: 12,
+        width: "100%", padding: "7px 10px", borderRadius: 7,
+        background: hovered ? "rgba(91,138,245,0.07)" : "none",
+        border: "none", cursor: "pointer", textAlign: "left",
+        fontFamily: "inherit", transition: "background 0.15s",
+      }}
+    >
+      <span style={{ fontWeight: 600, fontSize: 13, color: hovered ? COLORS.accent : COLORS.text, minWidth: 180, flexShrink: 0, transition: "color 0.15s" }}>
+        {smell.name}
+      </span>
+      <span style={{ fontSize: 13, color: COLORS.muted, lineHeight: 1.4 }}>
+        {smell.subtitle}
+      </span>
+    </button>
+  );
+}
+
 export default function App() {
   const [activeIndex, setActiveIndex] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1747,11 +1773,16 @@ export default function App() {
         display: "flex", alignItems: "center", padding: "0 20px", gap: 12,
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
       }}>
-        <span style={{ fontSize: 20 }}>🦨</span>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Code Smells</div>
-          <div style={{ fontSize: 11, color: COLORS.muted }}>All 24 — explained with examples</div>
-        </div>
+        <button
+          onClick={() => { setActiveIndex(null); window.scrollTo(0, 0); }}
+          style={{ display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+        >
+          <span style={{ fontSize: 20 }}>🦨</span>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text }}>Code Smells</div>
+            <div style={{ fontSize: 11, color: COLORS.muted }}>All 24 — explained with examples</div>
+          </div>
+        </button>
         <span style={{
           marginLeft: "auto", fontSize: 12, color: COLORS.muted,
           background: COLORS.tagBg, padding: "3px 10px",
@@ -1866,6 +1897,23 @@ export default function App() {
                   <div style={{ fontSize: 22, marginBottom: 8 }}>{cat.icon}</div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{cat.name}</div>
                   <div style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{cat.items.length} smells</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: COLORS.muted }}>All Smells</span>
+                <div style={{ flex: 1, height: 1, background: COLORS.border }} />
+              </div>
+              {categories.map(cat => (
+                <div key={cat.name}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: COLORS.muted, padding: "8px 0 4px" }}>
+                    {cat.icon} {cat.name}
+                  </div>
+                  {cat.items.map(smell => (
+                    <SmellRow key={smell.name} smell={smell} onSelect={() => showSmell(smell._index)} />
+                  ))}
                 </div>
               ))}
             </div>
