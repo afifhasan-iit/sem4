@@ -1,1831 +1,1886 @@
-'use client';
+'use client'
 import { useState } from "react";
 
-const smells = [
+type CodeSmell = {
+  category: string;
+  categoryIcon: string;
+  name: string;
+  subtitle: string;
+  explanation: string;
+  tags: string[];
+  badNote: string;
+  bad: string;
+  goodNote: string;
+  good: string;
+  _index?: number;
+};
+
+const smells: CodeSmell[] = [
   {
-    category: "Bloaters",
-    color: "#ff6b6b",
-    items: [
-      {
-        name: "Long Method",
-        oneliner: "A method that has grown to handle multiple responsibilities, making it hard to read, test, or safely change without side effects.",
-        bad: `public OrderRecord processOrder(Order order) {
-    // --- VALIDATION ---
-    if (order.getId() == null)
-        throw new IllegalArgumentException("Order ID is required");
-    if (order.getItems() == null || order.getItems().isEmpty())
-        throw new IllegalArgumentException("Order must have at least one item");
-    if (order.getCustomer() == null || order.getCustomer().getEmail() == null)
-        throw new IllegalArgumentException("Customer email is required");
-    if (order.getCustomer().getAddress() == null)
-        throw new IllegalArgumentException("Shipping address is incomplete");
+    category: "Bloaters", categoryIcon: "🧱",
+    name: "Long Method",
+    subtitle: "A method that has grown too large to understand at a glance",
+    explanation: "When a method keeps accumulating logic over time — more conditions, more loops, more edge cases — it eventually becomes a wall of code. Nobody wants to read a 200-line function just to change one small behavior. Long methods are hard to test, harder to name, and worst of all, they encourage developers to keep dumping code in because \"it's already messy anyway.\" The sweet spot is a method short enough that its name perfectly describes everything it does.",
+    tags: ["Readability", "Maintainability", "SRP"],
+    badNote: "One method doing validation, pricing, persistence AND email — four responsibilities jammed together. Change one rule and you risk breaking the others.",
+    bad: `void processOrder(Order order) {
 
-    // --- CALCULATE TOTAL ---
-    double subtotal = 0;
-    for (Item item : order.getItems()) {
-        if (item.getQuantity() <= 0)
-            throw new IllegalArgumentException("Bad qty: " + item.getName());
-        subtotal += item.getPrice() * item.getQuantity();
-    }
-    double total = subtotal;
-    if ("SAVE10".equals(order.getCouponCode())) total *= 0.9;
-    else if ("SAVE20".equals(order.getCouponCode())) total *= 0.8;
-    double tax = total * 0.15;
-    total += tax;
+  // ── STEP 1: VALIDATE ──────────────────────────
+  if (order.items.isEmpty()) return;
+  if (order.customer == null)
+    throw new Exception("No customer");
+  for (Item i : order.items) {
+    if (i.stock <= 0)
+      throw new Exception("Out of stock: " + i.name);
+  }
 
-    // --- SEND CONFIRMATION EMAIL ---
-    StringBuilder itemLines = new StringBuilder();
-    for (Item i : order.getItems())
-        itemLines.append("  - ").append(i.getName())
-                 .append(" x").append(i.getQuantity())
-                 .append(": $").append(i.getPrice() * i.getQuantity()).append("\n");
-    String emailBody = "Hi " + order.getCustomer().getName() + ",\n"
-        + "Thanks for your order #" + order.getId() + ".\n"
-        + "Items:\n" + itemLines
-        + String.format("Subtotal: $%.2f | Tax: $%.2f | Total: $%.2f", subtotal, tax, total);
-    EmailService.send(order.getCustomer().getEmail(), "Order Confirmed", emailBody);
+  // ── STEP 2: CALCULATE TOTAL ───────────────────
+  double total = 0;
+  for (Item i : order.items) {
+    total += i.price * i.qty;
+  }
+  if (order.hasMembership) total *= 0.90;
+  double tax = total * 0.08;
+  total += tax;
 
-    // --- UPDATE INVENTORY ---
-    for (Item item : order.getItems()) {
-        if (Inventory.getStock(item.getId()) < item.getQuantity())
-            throw new IllegalStateException("Insufficient stock for " + item.getName());
-        Inventory.reduce(item.getId(), item.getQuantity());
-    }
+  // ── STEP 3: PERSIST ───────────────────────────
+  db.save(order);
+  db.save(new Invoice(order, total));
+  db.save(new AuditLog("ORDER_PLACED", order.id));
 
-    // --- SAVE TO DB ---
-    OrderRecord record = new OrderRecord(order, subtotal, tax, total,
-        "confirmed", LocalDateTime.now());
-    Database.save("orders", record);
-    Database.save("audit_log",
-        new AuditEntry(order.getId(), "created", record.getCreatedAt()));
-    return record;
+  // ── STEP 4: NOTIFY ────────────────────────────
+  String msg = "Your order #" + order.id
+    + " is confirmed. Total: $" + total;
+  email.send(order.customer.email, "Order Confirmed", msg);
+  sms.send(order.customer.phone, msg);
 }`,
-        good: `// Each method has ONE job. processOrder is now a coordinator.
-public OrderRecord processOrder(Order order) {
-    validateOrder(order);
-    Pricing pricing = calculatePricing(order);
-    reserveInventory(order.getItems());
-    sendConfirmationEmail(order, pricing);
-    return saveOrder(order, pricing);
+    goodNote: "Each responsibility gets a well-named method. processOrder() now reads like a checklist.",
+    good: `void processOrder(Order order) {
+  validateOrder(order);
+  double total = calculateTotal(order);
+  persistOrder(order, total);
+  notifyCustomer(order, total);
 }
 
-private void validateOrder(Order order) {
-    if (order.getId() == null)
-        throw new IllegalArgumentException("Order ID is required");
-    if (order.getItems() == null || order.getItems().isEmpty())
-        throw new IllegalArgumentException("Cart is empty");
-    if (order.getCustomer() == null || order.getCustomer().getEmail() == null)
-        throw new IllegalArgumentException("Customer email required");
-    for (Item item : order.getItems())
-        if (item.getQuantity() <= 0)
-            throw new IllegalArgumentException("Bad qty: " + item.getName());
+void validateOrder(Order order) {
+  if (order.items.isEmpty())
+    throw new IllegalStateException("Empty cart");
+  if (order.customer == null)
+    throw new IllegalStateException("No customer");
+  for (Item i : order.items)
+    if (i.stock <= 0)
+      throw new OutOfStockException(i.name);
 }
 
-private Pricing calculatePricing(Order order) {
-    Map<String, Double> coupons = Map.of("SAVE10", 0.9, "SAVE20", 0.8);
-    double subtotal = order.getItems().stream()
-        .mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
-    double discounted = subtotal * coupons.getOrDefault(order.getCouponCode(), 1.0);
-    double tax = discounted * 0.15;
-    return new Pricing(subtotal, tax, discounted + tax);
+double calculateTotal(Order order) {
+  double sub = order.items.stream()
+    .mapToDouble(i -> i.price * i.qty).sum();
+  if (order.hasMembership) sub *= 0.90;
+  return sub + (sub * 0.08);
 }
 
-private void reserveInventory(List<Item> items) {
-    for (Item item : items) {
-        if (Inventory.getStock(item.getId()) < item.getQuantity())
-            throw new IllegalStateException("Out of stock: " + item.getName());
-        Inventory.reduce(item.getId(), item.getQuantity());
-    }
+void persistOrder(Order order, double total) {
+  db.save(order);
+  db.save(new Invoice(order, total));
+  db.save(new AuditLog("ORDER_PLACED", order.id));
 }
 
-private void sendConfirmationEmail(Order order, Pricing pricing) {
-    String itemLines = order.getItems().stream()
-        .map(i -> "  - " + i.getName() + " x" + i.getQuantity()
-                + ": $" + (i.getPrice() * i.getQuantity()))
-        .collect(Collectors.joining("\n"));
-    String body = "Hi " + order.getCustomer().getName()
-        + ", your order #" + order.getId() + " is confirmed.\nItems:\n" + itemLines + "\n"
-        + String.format("Subtotal: $%.2f | Tax: $%.2f | Total: $%.2f",
-            pricing.subtotal(), pricing.tax(), pricing.total());
-    EmailService.send(order.getCustomer().getEmail(), "Order Confirmed", body);
-}
+void notifyCustomer(Order order, double total) {
+  String msg = "Order #" + order.id
+    + " confirmed. Total: $" + total;
+  email.send(order.customer.email, "Confirmed", msg);
+  sms.send(order.customer.phone, msg);
+}`
+  },
+  {
+    category: "Bloaters", categoryIcon: "🧱",
+    name: "Large Class",
+    subtitle: "A class that has taken on too many responsibilities",
+    explanation: "A class starts simple — maybe it handles user authentication. Then someone adds email preferences, then notification settings, then profile pictures. Before long it has 40 fields and 80 methods and no one really knows what it \"is\" anymore. A Large Class is a sign that several distinct concepts got crammed into one place. When you find yourself thinking \"this class handles A... and also B... and C too,\" that's the moment to split.",
+    tags: ["SRP", "Cohesion", "God Object"],
+    badNote: "UserManager is a God Object — it owns authentication, billing, notifications AND audit logging.",
+    bad: `class UserManager {
+  String userId, name, email;
+  String passwordHash, salt;
+  Instant lastLogin;
 
-private OrderRecord saveOrder(Order order, Pricing pricing) {
-    OrderRecord record = new OrderRecord(order, pricing, "confirmed", LocalDateTime.now());
-    Database.save("orders", record);
-    Database.save("audit_log",
-        new AuditEntry(order.getId(), "created", record.getCreatedAt()));
-    return record;
+  String avatarUrl, bio, location, website;
+  List<String> interests;
+
+  String stripeCustomerId;
+  String plan; // "FREE" | "PRO" | "ENTERPRISE"
+  Instant billingCycleEnd;
+  boolean pastDue;
+
+  List<Notification> inbox;
+  boolean emailNotifs, smsNotifs;
+
+  boolean login(String pw) { ... }
+  void logout() { ... }
+  void changePassword(String old, String next) { ... }
+
+  void updateBio(String bio) { ... }
+  void uploadAvatar(File f) { ... }
+
+  void subscribe(Plan p) { ... }
+  void cancelSubscription() { ... }
+  Invoice generateInvoice() { ... }
+
+  void sendNotification(String msg) { ... }
+  void markAllRead() { ... }
+  List<Notification> getUnread() { ... }
 }`,
-      },
-      {
-        name: "Large Class",
-        oneliner: "A class that has accumulated too many responsibilities over time, becoming a hub for unrelated logic that should live in separate, focused classes.",
-        bad: `// This class handles auth, email, DB, reporting — all in one place.
-// It changes for completely unrelated reasons.
-public class UserManager {
+    goodNote: "Each class now has one clear job. You can read, test, or replace BillingService without touching AuthService.",
+    good: `class User {
+  String userId, name, email;
+  String avatarUrl, bio, location;
 
-    // --- AUTH ---
-    public String login(String email, String password) {
-        User user = db.find("users", email);
-        if (user == null || !BCrypt.checkpw(password, user.getPasswordHash()))
-            throw new RuntimeException("Invalid credentials");
-        String token = JWT.sign(user.getId(), System.getenv("JWT_SECRET"));
-        db.save("sessions", new Session(user.getId(), token));
-        return token;
-    }
-    public void logout(String token) { db.delete("sessions", token); }
-    public User register(String email, String password, String name) {
-        if (db.find("users", email) != null) throw new RuntimeException("Email taken");
-        return db.save("users", new User(email, BCrypt.hashpw(password, 10), name));
-    }
-
-    // --- EMAILS ---
-    public void sendWelcomeEmail(User user) {
-        smtp.send(user.getEmail(), "Welcome!",
-            "<h1>Welcome, " + user.getName() + "!</h1>");
-    }
-    public void sendPasswordResetEmail(User user) {
-        String token = TokenUtils.generate();
-        db.save("reset_tokens", new ResetToken(user.getId(), token));
-        smtp.send(user.getEmail(), "Reset your password",
-            "<a href=\"/reset?token=" + token + "\">Reset</a>");
-    }
-
-    // --- DATABASE ---
-    public User findById(String id)       { return db.find("users", id); }
-    public User findByEmail(String email) { return db.find("users", email); }
-    public void updateProfile(String id, Map<String, Object> data) { db.update("users", id, data); }
-    public void deleteAccount(String id)  { db.delete("users", id); }
-
-    // --- REPORTING ---
-    public Map<String, Integer> generateMonthlyReport() {
-        List<User> users = db.findAll("users");
-        int thisMonth = LocalDate.now().getMonthValue();
-        long newThisMonth = users.stream()
-            .filter(u -> u.getCreatedAt().getMonthValue() == thisMonth).count();
-        return Map.of("total", users.size(), "newThisMonth", (int) newThisMonth);
-    }
-    public String exportToCSV() {
-        return "id,email,name\n" + db.findAll("users").stream()
-            .map(u -> u.getId() + "," + u.getEmail() + "," + u.getName())
-            .collect(Collectors.joining("\n"));
-    }
-}`,
-        good: `// Split by axis of change. Each class has one reason to be modified.
-
-public class AuthService {
-    private final Database db;
-    private final String secret;
-    public AuthService(Database db, String secret) { this.db = db; this.secret = secret; }
-
-    public String login(String email, String password) {
-        User user = db.find("users", email);
-        if (user == null || !BCrypt.checkpw(password, user.getPasswordHash()))
-            throw new RuntimeException("Invalid credentials");
-        String token = JWT.sign(user.getId(), secret);
-        db.save("sessions", new Session(user.getId(), token));
-        return token;
-    }
-    public void logout(String token) { db.delete("sessions", token); }
-    public User register(String email, String password, String name) {
-        if (db.find("users", email) != null) throw new RuntimeException("Email taken");
-        return db.save("users", new User(email, BCrypt.hashpw(password, 10), name));
-    }
+  void updateProfile(String bio, String location) { ... }
 }
 
-public class UserEmailService {
-    private final SMTPClient smtp;
-    private final Database db;
-    public UserEmailService(SMTPClient smtp, Database db) { this.smtp = smtp; this.db = db; }
-
-    public void sendWelcome(User user) {
-        smtp.send(user.getEmail(), "Welcome!", "<h1>Welcome, " + user.getName() + "!</h1>");
-    }
-    public void sendPasswordReset(User user) {
-        String token = TokenUtils.generate();
-        db.save("reset_tokens", new ResetToken(user.getId(), token));
-        smtp.send(user.getEmail(), "Reset your password",
-            "<a href=\"/reset?token=" + token + "\">Reset</a>");
-    }
+class AuthService {
+  boolean login(User u, String password) { ... }
+  void logout(User u) { ... }
+  void changePassword(User u, String old, String next) { ... }
 }
 
-public class UserRepository {
-    private final Database db;
-    public UserRepository(Database db) { this.db = db; }
-    public User findById(String id)       { return db.find("users", id); }
-    public User findByEmail(String email) { return db.find("users", email); }
-    public void update(String id, Map<String, Object> data) { db.update("users", id, data); }
-    public void delete(String id)         { db.delete("users", id); }
+class BillingService {
+  void subscribe(User u, Plan plan) { ... }
+  void cancel(User u) { ... }
+  Invoice generateInvoice(User u) { ... }
 }
 
-public class UserReportService {
-    private final Database db;
-    public UserReportService(Database db) { this.db = db; }
-    public Map<String, Integer> monthlyStats() {
-        List<User> users = db.findAll("users");
-        int thisMonth = LocalDate.now().getMonthValue();
-        long newCount = users.stream()
-            .filter(u -> u.getCreatedAt().getMonthValue() == thisMonth).count();
-        return Map.of("total", users.size(), "newThisMonth", (int) newCount);
-    }
-    public String exportCSV() {
-        return "id,email,name\n" + db.findAll("users").stream()
-            .map(u -> u.getId() + "," + u.getEmail() + "," + u.getName())
-            .collect(Collectors.joining("\n"));
-    }
+class NotificationService {
+  void send(User u, String message) { ... }
+  void markAllRead(User u) { ... }
+  List<Notification> getUnread(User u) { ... }
 }
 
-// ─── WIRING THEM ALL TOGETHER ─────────────────────────────────────────────
-// Each service gets only the dependencies it needs.
-// Swap db or smtp for a mock in tests without touching anything else.
-
-Database db     = new Database();
-SMTPClient smtp = new SMTPClient();
-
-AuthService       authService    = new AuthService(db, System.getenv("JWT_SECRET"));
-UserEmailService  emailService   = new UserEmailService(smtp, db);
-UserRepository    userRepository = new UserRepository(db);
-UserReportService reportService  = new UserReportService(db);
-
-// ─── USAGE EXAMPLES ───────────────────────────────────────────────────────
-
-// Register a new user and send a welcome email:
-authService.register("alice@example.com", "s3cr3t", "Alice");
-User newUser = userRepository.findByEmail("alice@example.com");
-emailService.sendWelcome(newUser);
-
-// Log in and get a JWT:
-String jwt = authService.login("alice@example.com", "s3cr3t");
-
-// Update profile via the repository:
-userRepository.update(newUser.getId(), Map.of("name", "Alice Smith"));
-
-// Generate a monthly report — no auth or email logic involved:
-Map<String, Integer> stats = reportService.monthlyStats();
-System.out.println("Total: " + stats.get("total")
-    + ", new this month: " + stats.get("newThisMonth"));
-
-// Each service is independently testable:
-// AuthService auth = new AuthService(mockDb, "test-secret");
-// → no smtp, no reporting, no side effects`,
-      },
-      {
-        name: "Primitive Obsession",
-        oneliner: "Using raw strings and numbers to represent domain concepts, leading to duplicated validation logic scattered across the codebase with no single source of truth.",
-        bad: `// All domain concepts are raw strings and ints.
-// Validation duplicated everywhere. No single source of truth.
-public User registerUser(String name, String email, String phone, int birthYear) {
-    if (!email.contains("@") || !email.contains("."))
-        throw new IllegalArgumentException("Invalid email");
-    if (phone.replaceAll("\\D", "").length() != 10)
-        throw new IllegalArgumentException("Phone must be 10 digits");
-    if (birthYear < 1900 || birthYear > Year.now().getValue())
-        throw new IllegalArgumentException("Invalid birth year");
-    return new User(name, email, phone, birthYear);
+class AuditLog {
+  void record(User u, String action) { ... }
+  List<AuditEvent> history(User u) { ... }
+}`
+  },
+  {
+    category: "Bloaters", categoryIcon: "🧱",
+    name: "Primitive Obsession",
+    subtitle: "Using raw primitives instead of small domain objects",
+    explanation: "It feels natural to represent a phone number as a String, or money as a double. But primitives have no behavior — you can't validate them, format them, or enforce rules on them. When your codebase is littered with Strings that mean \"phone numbers\" and doubles that mean \"prices in USD,\" bugs creep in. Tiny value objects cost almost nothing and give you enormous safety.",
+    tags: ["Type Safety", "Domain Modeling", "Value Objects"],
+    badNote: "Nothing stops a caller from passing a negative price, a malformed phone number, or mixing up USD and EUR.",
+    bad: `class Order {
+  String customerId;   // format? UUID? email?
+  double price;        // USD? EUR? can it be negative?
+  String status;       // "active"? "ACTIVE"? all valid?
+  String phone;        // "+880..." or "01..."? who validates?
+  double discount;     // fraction (0.1) or percent (10)?
 }
 
-public void updateContactInfo(String userId, String email, String phone) {
-    // Same validation copy-pasted again:
-    if (!email.contains("@") || !email.contains("."))
-        throw new IllegalArgumentException("Invalid email");
-    if (phone.replaceAll("\\D", "").length() != 10)
-        throw new IllegalArgumentException("Phone must be 10 digits");
-    db.update("users", userId, Map.of("email", email, "phone", phone));
+void ship(String customerId,
+          double amount,
+          String phone,
+          String country) {
+  // BUG: amount could be -50.0, nobody checks
+  // BUG: phone "abc" passes right through
+  sms.send(phone, "Shipping $" + amount);
+  payment.charge(customerId, amount);
 }
 
-public void sendMarketingEmail(String email, String subject, String body) {
-    // And again...
-    if (!email.contains("@") || !email.contains("."))
-        throw new IllegalArgumentException("Invalid email");
-    mailer.send(email, subject, body);
-}`,
-        good: `// Each domain concept is a self-validating, self-describing object.
-public class Email {
-    private final String value;
-    public Email(String value) {
-        if (!value.contains("@") || !value.contains("."))
-            throw new IllegalArgumentException("Invalid email: " + value);
-        this.value = value.toLowerCase().trim();
-    }
-    public boolean equals(Email other) { return this.value.equals(other.value); }
-    @Override public String toString()  { return value; }
+// Accidental swap — compiler won't catch this:
+ship(customerPhone, totalPrice, customerId, "USD");`,
+    goodNote: "Each domain concept is its own type with validation baked in. The compiler catches argument swaps.",
+    good: `class CustomerId {
+  private final String value;
+  CustomerId(String v) {
+    if (!v.matches("USR-\\d{6}"))
+      throw new IllegalArgumentException("Bad ID: " + v);
+    this.value = v;
+  }
+  String value() { return value; }
 }
 
-public class PhoneNumber {
-    private final String digits;
-    public PhoneNumber(String value) {
-        digits = value.replaceAll("\\D", "");
-        if (digits.length() != 10)
-            throw new IllegalArgumentException("Invalid phone: " + value);
-    }
-    public String formatted() {
-        return "(" + digits.substring(0,3) + ") "
-            + digits.substring(3,6) + "-" + digits.substring(6);
-    }
+class Money {
+  private final BigDecimal amount;
+  private final Currency currency;
+
+  Money(BigDecimal amount, Currency currency) {
+    if (amount.compareTo(BigDecimal.ZERO) < 0)
+      throw new IllegalArgumentException("Negative money");
+    this.amount = amount;
+    this.currency = currency;
+  }
+
+  Money add(Money other) {
+    if (!currency.equals(other.currency))
+      throw new CurrencyMismatchException();
+    return new Money(amount.add(other.amount), currency);
+  }
 }
 
-public class BirthYear {
-    private final int value;
-    public BirthYear(int year) {
-        if (year < 1900 || year > Year.now().getValue())
-            throw new IllegalArgumentException("Invalid birth year: " + year);
-        this.value = year;
-    }
-    public int age() { return Year.now().getValue() - value; }
+class PhoneNumber {
+  private final String e164;
+  PhoneNumber(String raw) {
+    this.e164 = PhoneNormalizer.toE164(raw);
+  }
+  String forSms() { return e164; }
 }
 
-// Now consumers just pass typed objects — no validation scattered around:
-public User registerUser(String name, String email, String phone, int birthYear) {
-    return new User(name, new Email(email), new PhoneNumber(phone), new BirthYear(birthYear));
-}
+// Compiler enforces correctness:
+void ship(CustomerId id, Money amount, PhoneNumber phone) {
+  sms.send(phone.forSms(), "Shipping " + amount.format());
+  payment.charge(id.value(), amount);
+}`
+  },
+  {
+    category: "Bloaters", categoryIcon: "🧱",
+    name: "Long Parameter List",
+    subtitle: "A method that demands too many arguments",
+    explanation: "The more parameters a function has, the harder it is to call correctly. With four or more arguments, you start forgetting the order, accidentally swapping values of the same type, and writing calls that look like random number sequences. Long parameter lists usually mean the function is doing too much, or that a group of those parameters naturally belong together as an object.",
+    tags: ["API Design", "Readability", "Coupling"],
+    badNote: "Eight positional arguments. Can you tell which boolean is emailVerified and which is isAdmin just by looking at the call site?",
+    bad: `void createUser(
+  String  firstName,
+  String  lastName,
+  String  email,
+  String  password,
+  int     age,
+  String  role,
+  boolean emailVerified,
+  boolean isAdmin,
+  String  country,
+  String  timezone
+) { ... }
 
-public void updateContactInfo(String userId, String email, String phone) {
-    db.update("users", userId,
-        Map.of("email", new Email(email), "phone", new PhoneNumber(phone)));
-}
-
-public void sendMarketingEmail(String email, String subject, String body) {
-    mailer.send(new Email(email), subject, body);
-}`,
-      },
-      {
-        name: "Long Parameter List",
-        oneliner: "A function that accepts so many arguments that callers can't tell what each one means without reading the implementation or docs.",
-        bad: `// What does the 7th argument mean again?
-public Employee createEmployee(
-    String firstName, String lastName, int age,
-    String email,     String phone,
-    String street,    String city, String zip, String country,
-    String department, String role, double salary,
-    String startDate, boolean isFullTime, String managerEmail
-) {
-    if (!email.contains("@")) throw new IllegalArgumentException("Bad email");
-    if (salary < 0) throw new IllegalArgumentException("Salary can't be negative");
-    return new Employee(firstName + " " + lastName, age, email, phone,
-        new Address(street, city, zip, country),
-        new Employment(department, role, salary, startDate, isFullTime, managerEmail));
-}
-
-// Calling this is a nightmare — what is 'true' here?
-createEmployee("John", "Doe", 30, "j@ex.com", "5551234567",
-    "123 Main", "Springfield", "62701", "US",
-    "Engineering", "Senior Dev", 120000, "2024-01-15", true, "mgr@ex.com");`,
-        good: `// Group related params into meaningful objects (Java 16+ records).
-public record EmployeeName(String first, String last, int age) {}
-public record ContactInfo(String email, String phone) {}
-public record Address(String street, String city, String zip, String country) {}
-public record Employment(String department, String role, double salary,
-                         String startDate, boolean isFullTime, String managerEmail) {}
-
-public Employee createEmployee(
-        EmployeeName name, ContactInfo contact,
-        Address address, Employment employment) {
-    if (!contact.email().contains("@"))
-        throw new IllegalArgumentException("Bad email");
-    if (employment.salary() < 0)
-        throw new IllegalArgumentException("Salary can't be negative");
-    return new Employee(name.first() + " " + name.last(),
-        name.age(), contact, address, employment);
-}
-
-// Calling this is self-documenting:
-createEmployee(
-    new EmployeeName("John", "Doe", 30),
-    new ContactInfo("j@ex.com", "5551234567"),
-    new Address("123 Main", "Springfield", "62701", "US"),
-    new Employment("Engineering", "Senior Dev", 120000,
-        "2024-01-15", true, "mgr@ex.com")
+// Six months later:
+createUser(
+  "Jane", "Doe",
+  "jane@example.com",
+  "hunter2",
+  28, "ADMIN",
+  false,   // emailVerified? isAdmin? nobody knows
+  true,    // ← swapped — silent bug
+  "US", "UTC"
 );`,
-      },
-      {
-        name: "Data Clumps",
-        oneliner: "A group of variables that always appear together across the codebase but have never been promoted into a dedicated object with a name and behavior.",
-        bad: `// lat, lng, label — always three, always together. But never a type.
-public void plotMarker(double lat, double lng, String label) {
-    map.pin(lat, lng, label);
+    goodNote: "Named fields make the call site self-documenting. Add a new field later without breaking every existing caller.",
+    good: `class CreateUserRequest {
+  String firstName;
+  String lastName;
+  String email;
+  String password;
+
+  int     age           = 0;
+  String  role          = "USER";
+  boolean emailVerified = false;
+  boolean isAdmin       = false;
+  String  country       = "US";
+  String  timezone      = "UTC";
 }
 
-public double distanceBetween(double lat1, double lng1, double lat2, double lng2) {
-    double R = 6371;
-    double dLat = Math.toRadians(lat2 - lat1);
-    double dLng = Math.toRadians(lng2 - lng1);
-    double a = Math.pow(Math.sin(dLat / 2), 2)
-        + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-        * Math.pow(Math.sin(dLng / 2), 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+void createUser(CreateUserRequest req) {
+  validateEmail(req.email);
+  if (req.isAdmin) requireAdminApproval(req);
 }
 
-public void saveLocation(String userId, double lat, double lng, String label) {
-    db.save("locations", Map.of("userId", userId, "lat", lat, "lng", lng, "label", label));
-}
-
-public String formatLocation(double lat, double lng, String label) {
-    return String.format("%s (%.4f, %.4f)", label, lat, lng);
-}`,
-        good: `// Give the clump a name. Behavior now lives with its data.
-public class GeoLocation {
-    private final double lat, lng;
-    private final String label;
-
-    public GeoLocation(double lat, double lng, String label) {
-        if (lat < -90 || lat > 90)   throw new IllegalArgumentException("Invalid latitude");
-        if (lng < -180 || lng > 180) throw new IllegalArgumentException("Invalid longitude");
-        this.lat = lat; this.lng = lng; this.label = label;
-    }
-
-    public double distanceTo(GeoLocation other) {
-        double R    = 6371;
-        double dLat = Math.toRadians(other.lat - this.lat);
-        double dLng = Math.toRadians(other.lng - this.lng);
-        double a    = Math.pow(Math.sin(dLat / 2), 2)
-            + Math.cos(Math.toRadians(this.lat)) * Math.cos(Math.toRadians(other.lat))
-            * Math.pow(Math.sin(dLng / 2), 2);
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    @Override public String toString() {
-        return String.format("%s (%.4f, %.4f)", label, lat, lng);
-    }
-}
-
-// All callers become simpler:
-public void plotMarker(GeoLocation loc) { map.pin(loc.getLat(), loc.getLng(), loc.getLabel()); }
-public void saveLocation(String userId, GeoLocation loc) {
-    db.save("locations", Map.of("userId", userId, "location", loc));
-}
-public String formatLocation(GeoLocation loc) { return loc.toString(); }
-
-GeoLocation home   = new GeoLocation(23.8103, 90.4125, "Dhaka");
-GeoLocation office = new GeoLocation(23.7506, 90.3655, "Dhanmondi");
-System.out.printf("Distance: %.1f km%n", home.distanceTo(office));`,
-      },
-    ],
+// Call site reads like a config:
+var req = new CreateUserRequest();
+req.firstName     = "Jane";
+req.lastName      = "Doe";
+req.email         = "jane@example.com";
+req.password      = "hunter2";
+req.role          = "ADMIN";
+req.isAdmin       = true;   // unambiguous
+createUser(req);`
   },
   {
-    category: "Object-Orientation Abusers",
-    color: "#ffa94d",
-    items: [
-      {
-        name: "Alternative Classes with Different Interfaces",
-        oneliner: "Two classes that serve the same purpose but expose completely different method names, making them impossible to use interchangeably without extra glue code.",
-        bad: `// These two do the same thing but speak different languages.
-// Code that uses one can never be swapped for the other.
-public class EmailSender {
-    public void sendEmail(String toAddress, String emailSubject, String emailBody) {
-        smtp.connect();
-        smtp.send(toAddress, emailSubject, emailBody);
-        smtp.close();
-    }
+    category: "Bloaters", categoryIcon: "🧱",
+    name: "Data Clumps",
+    subtitle: "Groups of data that always travel together but aren't encapsulated",
+    explanation: "You notice that three fields — street, city, zipCode — appear together in five different classes and eight different method signatures. They're never used apart. That's not a coincidence, that's a concept trying to become a class. Data clumps are pre-objects waiting to be born. Giving them a home reduces duplication, makes intent clearer, and gives you one place to put validation or utility methods for that group.",
+    tags: ["Cohesion", "DRY", "Encapsulation"],
+    badNote: "The same four address fields appear in Customer, Order, and Invoice. Rename one and you update three classes.",
+    bad: `class Customer {
+  String name, email;
+  String street, city, zipCode, country; // ← clump
 }
 
-public class SMSDispatcher {
-    public void dispatchText(String mobileNo, String content) {
-        twilioClient.messages().create(mobileNo, content, SMS_FROM);
-    }
+class Order {
+  int orderId;
+  String street, city, zipCode, country; // ← same clump
 }
 
-// Can't write generic notification code without if/else:
-public void notify(String channel, String target, String subject, String body) {
-    if ("email".equals(channel)) {
-        new EmailSender().sendEmail(target, subject, body);
-    } else if ("sms".equals(channel)) {
-        new SMSDispatcher().dispatchText(target, body); // subject silently dropped!
-    }
-}`,
-        good: `// Unified interface. Generic code works with any channel.
-public interface MessageSender {
-    void send(String recipient, String subject, String body);
+class Invoice {
+  double amount;
+  String street, city, zipCode, country; // ← same clump again
 }
 
-public class EmailSender implements MessageSender {
-    public void send(String recipient, String subject, String body) {
-        smtp.connect();
-        smtp.send(recipient, subject, body);
-        smtp.close();
-    }
+void shipTo(
+  String street,
+  String city,
+  String zipCode,
+  String country   // ← four params that always arrive together
+) { ... }
+
+void printLabel(
+  String street,
+  String city,
+  String zipCode,
+  String country   // ← same four, again
+) { ... }`,
+    goodNote: "Address is now a first-class concept. Validation, formatting, and future fields live in exactly one place.",
+    good: `class Address {
+  final String street, city, zipCode, country;
+
+  Address(String street, String city,
+          String zipCode, String country) {
+    if (zipCode == null || zipCode.length() < 4)
+      throw new IllegalArgumentException("Bad zip");
+    this.street  = street;
+    this.city    = city;
+    this.zipCode = zipCode;
+    this.country = country;
+  }
+
+  String format() {
+    return street + "\\n" + city + " "
+      + zipCode + "\\n" + country;
+  }
 }
 
-public class SMSSender implements MessageSender {
-    public void send(String recipient, String subject, String body) {
-        // SMS doesn't use subject — prepended internally
-        twilioClient.messages().create(recipient, subject + ": " + body, SMS_FROM);
-    }
+class Customer {
+  String name, email;
+  Address billingAddress;   // ← one field, not four
+}
+class Order {
+  int orderId;
+  Address shippingAddress;
 }
 
-public class PushNotificationSender implements MessageSender {
-    public void send(String recipient, String subject, String body) {
-        pushService.notify(recipient, subject, body);
-    }
-}
-
-// Generic code that works with ANY channel — no if/else needed:
-public void notify(MessageSender sender, String recipient, String subject, String body) {
-    sender.send(recipient, subject, body);
-}
-
-notify(new EmailSender(), "user@ex.com", "Alert", "Server is down");
-notify(new SMSSender(),   "+8801700000", "Alert", "Server is down");`,
-      },
-      {
-        name: "Refused Bequest",
-        oneliner: "A subclass that inherits a broad parent interface but must throw errors or do nothing for methods it doesn't actually support, violating the contract it promised to fulfill.",
-        bad: `// Animal promises all subclasses can swim, fly, and speak.
-// That's a lie — and subclasses have to throw to prove it.
-public class Animal {
-    public void eat(String food) { System.out.println("Eating " + food); }
-    public void sleep()          { System.out.println("Sleeping..."); }
-    public void fly()            { System.out.println("Flying!"); }
-    public void swim()           { System.out.println("Swimming!"); }
-    public void speak()          { System.out.println("..."); }
-}
-
-public class Dog extends Animal {
-    @Override public void fly() {
-        throw new UnsupportedOperationException("Dogs cannot fly!");
-    }
-    @Override public void speak() { System.out.println("Woof!"); }
-}
-
-public class Penguin extends Animal {
-    @Override public void fly() {
-        throw new UnsupportedOperationException("Penguins cannot fly!");
-    }
-    @Override public void speak() { System.out.println("Squawk!"); }
-}
-
-public class GoldFish extends Animal {
-    @Override public void fly()   { throw new UnsupportedOperationException("Fish cannot fly!"); }
-    @Override public void speak() { throw new UnsupportedOperationException("Fish don't speak!"); }
-}
-
-// Any code that calls animal.fly() may blow up at runtime.`,
-        good: `// Model capabilities accurately with interfaces.
-public abstract class Animal {
-    protected final String name;
-    public Animal(String name) { this.name = name; }
-    public void eat(String food) { System.out.println(name + " eats " + food); }
-    public void sleep()          { System.out.println(name + " sleeps"); }
-}
-
-public interface Swimmer { void swim(); }
-public interface Flyer   { void fly();  }
-
-public class Dog extends Animal implements Swimmer {
-    public Dog(String name) { super(name); }
-    public void swim()  { System.out.println(name + " swims"); }
-    public void speak() { System.out.println("Woof!"); }
-}
-
-public class Eagle extends Animal implements Flyer {
-    public Eagle(String name) { super(name); }
-    public void fly()   { System.out.println(name + " flies"); }
-    public void speak() { System.out.println("Screech!"); }
-}
-
-public class Duck extends Animal implements Flyer, Swimmer {
-    public Duck(String name) { super(name); }
-    public void fly()   { System.out.println(name + " flies"); }
-    public void swim()  { System.out.println(name + " swims"); }
-    public void speak() { System.out.println("Quack!"); }
-}
-
-public class GoldFish extends Animal implements Swimmer {
-    public GoldFish(String name) { super(name); }
-    public void swim() { System.out.println(name + " swims"); }
-}
-
-// No surprises. Duck CAN fly. GoldFish CANNOT.`,
-      },
-      {
-        name: "Switch Statements",
-        oneliner: "A switch or if/else chain that encodes type-based behavior and must be updated every time a new variant is added, instead of letting each type handle its own behavior.",
-        bad: `// Every time a new shape is added, every switch must be touched.
-// Violates the Open/Closed Principle.
-public double getArea(Shape shape) {
-    switch (shape.getType()) {
-        case "circle":    return Math.PI * Math.pow(shape.getRadius(), 2);
-        case "rectangle": return shape.getWidth() * shape.getHeight();
-        case "triangle":  return 0.5 * shape.getBase() * shape.getHeight();
-        default: throw new IllegalArgumentException("Unknown shape: " + shape.getType());
-    }
-}
-
-public double getPerimeter(Shape shape) {
-    switch (shape.getType()) {
-        case "circle":    return 2 * Math.PI * shape.getRadius();
-        case "rectangle": return 2 * (shape.getWidth() + shape.getHeight());
-        case "triangle":  return shape.getA() + shape.getB() + shape.getC();
-        default: throw new IllegalArgumentException("Unknown shape: " + shape.getType());
-    }
-}
-
-public String describe(Shape shape) {
-    switch (shape.getType()) {
-        case "circle":    return "Circle with radius " + shape.getRadius();
-        case "rectangle": return "Rectangle " + shape.getWidth() + "x" + shape.getHeight();
-        default: return "Unknown shape";
-    }
-}`,
-        good: `// Add a new shape by adding ONE new class. Zero edits elsewhere.
-public abstract class Shape {
-    public abstract double area();
-    public abstract double perimeter();
-    public abstract String describe();
-}
-
-public class Circle extends Shape {
-    private final double radius;
-    public Circle(double radius) { this.radius = radius; }
-    public double area()      { return Math.PI * radius * radius; }
-    public double perimeter() { return 2 * Math.PI * radius; }
-    public String describe()  { return "Circle with radius " + radius; }
-}
-
-public class Rectangle extends Shape {
-    private final double width, height;
-    public Rectangle(double width, double height) { this.width = width; this.height = height; }
-    public double area()      { return width * height; }
-    public double perimeter() { return 2 * (width + height); }
-    public String describe()  { return "Rectangle " + width + "×" + height; }
-}
-
-public class Triangle extends Shape {
-    private final double base, height, a, b, c;
-    public Triangle(double base, double height, double a, double b, double c) {
-        this.base = base; this.height = height;
-        this.a = a; this.b = b; this.c = c;
-    }
-    public double area()      { return 0.5 * base * height; }
-    public double perimeter() { return a + b + c; }
-    public String describe()  { return "Triangle with base " + base; }
-}
-
-// Adding Trapezoid? Just write a new class. No existing code touched.
-
-List<Shape> shapes = List.of(new Circle(5), new Rectangle(4, 6), new Triangle(3, 4, 3, 4, 5));
-double totalArea = shapes.stream().mapToDouble(Shape::area).sum();`,
-      },
-      {
-        name: "Temporary Field",
-        oneliner: "An instance variable that is only set and meaningful during one specific operation, leaving the object in an incomplete or misleading state the rest of the time.",
-        bad: `// ShippingCalculator has 3 instance fields: baseRate, discount, destination.
-// But they are ONLY set inside calculate() and mean nothing outside it.
-// Between calls, the object is in a broken, half-filled state.
-public class ShippingCalculator {
-
-    // ⚠️ These are "temporary fields" — they are ONLY valid
-    // while calculate() is running. Outside that method,
-    // they are null/0 and have no meaning.
-    private double baseRate;
-    private double discount;
-    private String destination;
-
-    // Step 1: sets the temporary fields
-    public double calculate(Order order) {
-        this.destination = order.getDestination(); // e.g. "international"
-        this.baseRate    = order.getWeight() * 2.5;
-        this.discount    = order.isPriorityMember() ? 0.10 : 0.0;
-        return applyDiscount();
-    }
-
-    // Step 2: reads the temporary fields
-    private double applyDiscount() {
-        double rate = "international".equals(destination) ? baseRate * 1.5 : baseRate;
-        return rate - (rate * discount);
-    }
-}
-
-// ─── WHY THIS IS A PROBLEM ────────────────────────────────────────────────
-
-ShippingCalculator calc = new ShippingCalculator();
-
-// ❌ What are these right now? Null, 0, null.
-//    The object looks "valid" but it's actually broken:
-System.out.println(calc.baseRate);    // 0.0   — meaningless
-System.out.println(calc.discount);    // 0.0   — meaningless
-System.out.println(calc.destination); // null  — meaningless
-
-Order order1 = new Order("international", 10, true);
-System.out.println(calc.calculate(order1)); // 33.75 ✓
-
-// ❌ Now the fields hold leftover state from order1.
-//    They are "dirty" until the next calculate() call.
-System.out.println(calc.destination); // "international" — stale!
-
-// ❌ Thread-safety nightmare: if two threads call calculate()
-//    simultaneously, they share and corrupt each other's fields.
-Order order2 = new Order("domestic", 5, false);
-// Thread A sets destination = "international", weight = 10
-// Thread B sets destination = "domestic",      weight = 5
-// Thread A reads destination = "domestic" ← WRONG! Corrupted by B.`,
-        good: `// Fix 1 — SIMPLEST: pass everything as local variables inside the method.
-// No shared state. Each call is fully self-contained and thread-safe.
-public class ShippingCalculator {
-
-    public double calculate(Order order) {
-        // ✅ All "state" is local — lives only for this one call.
-        String destination = order.getDestination();
-        double baseRate    = order.getWeight() * 2.5;
-        double discount    = order.isPriorityMember() ? 0.10 : 0.0;
-
-        double rate = "international".equals(destination) ? baseRate * 1.5 : baseRate;
-        return rate - (rate * discount);
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-
-// Fix 2 — CLEANER: extract a small data class that carries the intermediate
-// state explicitly, making it obvious what belongs together.
-public class ShippingContext {
-    public final String destination;
-    public final double baseRate;
-    public final double discount;
-
-    public ShippingContext(Order order) {
-        this.destination = order.getDestination();
-        this.baseRate    = order.getWeight() * 2.5;
-        this.discount    = order.isPriorityMember() ? 0.10 : 0.0;
-    }
-
-    public double finalRate() {
-        double rate = "international".equals(destination) ? baseRate * 1.5 : baseRate;
-        return rate - (rate * discount);
-    }
-}
-
-public class ShippingCalculator {
-    public double calculate(Order order) {
-        return new ShippingContext(order).finalRate();
-    }
-}
-
-// ─── WHY THIS IS BETTER ───────────────────────────────────────────────────
-
-ShippingCalculator calc = new ShippingCalculator();
-
-Order order1 = new Order("international", 10, true);
-Order order2 = new Order("domestic",      5, false);
-
-System.out.println(calc.calculate(order1)); // 33.75 ✓
-System.out.println(calc.calculate(order2)); // 12.50 ✓
-
-// ✅ The calculator itself holds NO state between calls.
-//    Call it from 100 threads at once — no corruption possible.
-//    The object is always in a valid, predictable state.`,
-      },
-    ],
+void shipTo(Address addr)     { ... }
+void printLabel(Address addr) { ... }`
   },
   {
-    category: "Change Preventers",
-    color: "#69db7c",
-    items: [
-      {
-        name: "Divergent Change",
-        oneliner: "A class that must be modified for multiple unrelated reasons — pricing rules, database schema, email templates — all causing edits to the same file.",
-        bad: `// This class changes when: pricing rules change, DB schema changes,
-// export format changes, or notification templates change.
-// Four unrelated reasons to touch one file.
-public class Order {
-    private List<Item> items;
-    private Customer customer;
-
-    // Changes when pricing/tax rules change:
-    public double calculateTotal() {
-        double subtotal = items.stream().mapToDouble(i -> i.getPrice() * i.getQty()).sum();
-        double discount = customer.isPremium() ? subtotal * 0.1 : 0;
-        double tax      = (subtotal - discount) * 0.15;
-        return subtotal - discount + tax;
-    }
-
-    // Changes when DB schema changes:
-    public void save() {
-        db.run("INSERT INTO orders (customer_id, total, created_at) VALUES (?, ?, ?)",
-            customer.getId(), calculateTotal(), System.currentTimeMillis());
-    }
-
-    // Changes when export format changes:
-    public String exportCSV() {
-        return "item,qty,price\n" + items.stream()
-            .map(i -> i.getName() + "," + i.getQty() + "," + i.getPrice())
-            .collect(Collectors.joining("\n"));
-    }
-
-    // Changes when email template changes:
-    public void sendConfirmation() {
-        mailer.send(customer.getEmail(), "Order Confirmed",
-            "Hi " + customer.getName() + ", your order of $"
-            + calculateTotal() + " is confirmed!");
-    }
-}`,
-        good: `// Each class has exactly ONE reason to change.
-public class Order {
-    private final List<Item> items;
-    private final Customer customer;
-    public Order(List<Item> items, Customer customer) {
-        this.items = items; this.customer = customer;
-    }
-    public List<Item> getItems()  { return items; }
-    public Customer getCustomer() { return customer; }
+    category: "OO Abusers", categoryIcon: "🔀",
+    name: "Switch Statements",
+    subtitle: "Repeated type-checking logic that should live in polymorphism",
+    explanation: "A switch on a type field isn't inherently evil, but when that switch appears in five different places — computing price, formatting display, sending notifications, choosing icons — you have a problem. Add a new type and you're hunting through the codebase patching every switch. Polymorphism was designed exactly for this: put the behavior on the types themselves and let dispatch happen automatically.",
+    tags: ["Polymorphism", "OCP", "Type Dispatch"],
+    badNote: "The same switch logic is duplicated in area(), label(), AND color(). Add a Triangle and you must patch all three.",
+    bad: `double area(Shape s) {
+  switch (s.type) {
+    case "CIRCLE":    return Math.PI * s.r * s.r;
+    case "RECTANGLE": return s.w * s.h;
+    case "SQUARE":    return s.side * s.side;
+    default: throw new RuntimeException("Unknown");
+  }
 }
 
-public class OrderPricingService {
-    public double calculate(Order order) {
-        double subtotal = order.getItems().stream()
-            .mapToDouble(i -> i.getPrice() * i.getQty()).sum();
-        double discount = order.getCustomer().isPremium() ? subtotal * 0.1 : 0;
-        return subtotal - discount + (subtotal - discount) * 0.15;
-    }
+String label(Shape s) {
+  switch (s.type) {      // ← duplicate switch
+    case "CIRCLE":    return "Circle";
+    case "RECTANGLE": return "Rectangle";
+    case "SQUARE":    return "Square";
+    default: throw new RuntimeException("Unknown");
+  }
 }
 
-public class OrderRepository {
-    public void save(Order order, double total) {
-        db.run("INSERT INTO orders (customer_id, total, created_at) VALUES (?, ?, ?)",
-            order.getCustomer().getId(), total, System.currentTimeMillis());
-    }
+String color(Shape s) {
+  switch (s.type) {      // ← duplicate switch #3
+    case "CIRCLE":    return "#5b8af5";
+    case "RECTANGLE": return "#a78bfa";
+    case "SQUARE":    return "#34d399";
+    default: throw new RuntimeException("Unknown");
+  }
 }
 
-public class OrderExportService {
-    public String toCSV(Order order) {
-        return "item,qty,price\n" + order.getItems().stream()
-            .map(i -> i.getName() + "," + i.getQty() + "," + i.getPrice())
-            .collect(Collectors.joining("\n"));
-    }
+// Adding Triangle? Edit ALL three methods above.`,
+    goodNote: "Each type owns its behavior. Adding Triangle means writing one class — no existing code changes.",
+    good: `abstract class Shape {
+  abstract double area();
+  abstract String label();
+  abstract String color();
 }
 
-public class OrderNotificationService {
-    public void sendConfirmation(Order order, double total) {
-        mailer.send(order.getCustomer().getEmail(), "Order Confirmed",
-            "Hi " + order.getCustomer().getName()
-            + ", your order of $" + total + " is confirmed!");
-    }
-}`,
-      },
-      {
-        name: "Parallel Inheritance Hierarchies",
-        oneliner: "Adding a subclass to one hierarchy always forces you to add a matching subclass to another, coupling two separate trees so they must grow in lockstep.",
-        bad: `// SCENARIO: A payment system.
-// We have a hierarchy of payment METHODS (CreditCard, PayPal, Bitcoin).
-// We also have a hierarchy of payment LOGGERS (one per method).
-//
-// The problem: every time you add a new payment method,
-// you are FORCED to also add a matching Logger class.
-// Nothing in the compiler enforces this — if you forget, it silently breaks.
-
-// ─── HIERARCHY 1: Payment Methods ─────────────────────────────────────────
-
-public abstract class Payment {
-    protected double amount;
-    public Payment(double amount) { this.amount = amount; }
-    public abstract void process();
+class Circle extends Shape {
+  final double r;
+  double area()  { return Math.PI * r * r; }
+  String label() { return "Circle"; }
+  String color() { return "#5b8af5"; }
 }
 
-public class CreditCardPayment extends Payment {
-    public CreditCardPayment(double amount) { super(amount); }
-    public void process() { System.out.println("Charging $" + amount + " to credit card"); }
+class Rectangle extends Shape {
+  final double w, h;
+  double area()  { return w * h; }
+  String label() { return "Rectangle"; }
+  String color() { return "#a78bfa"; }
 }
 
-public class PayPalPayment extends Payment {
-    public PayPalPayment(double amount) { super(amount); }
-    public void process() { System.out.println("Sending $" + amount + " via PayPal"); }
+class Square extends Shape {
+  final double side;
+  double area()  { return side * side; }
+  String label() { return "Square"; }
+  String color() { return "#34d399"; }
 }
 
-public class BitcoinPayment extends Payment {
-    public BitcoinPayment(double amount) { super(amount); }
-    public void process() { System.out.println("Broadcasting $" + amount + " in Bitcoin"); }
-}
-
-// ─── HIERARCHY 2: Payment Loggers (one per payment type) ──────────────────
-// This hierarchy exists ONLY because the first one exists.
-// They are forever locked in lockstep.
-
-public abstract class PaymentLogger {
-    public abstract void log(Payment payment);
-}
-
-public class CreditCardLogger extends PaymentLogger {
-    public void log(Payment p) {
-        System.out.println("[LOG] Credit card payment of $" + p.amount);
-    }
-}
-
-public class PayPalLogger extends PaymentLogger {
-    public void log(Payment p) {
-        System.out.println("[LOG] PayPal payment of $" + p.amount);
-    }
-}
-
-public class BitcoinLogger extends PaymentLogger {
-    public void log(Payment p) {
-        System.out.println("[LOG] Bitcoin payment of $" + p.amount);
-    }
-}
-
-// ─── WIRING THEM TOGETHER ─────────────────────────────────────────────────
-// To use them, you need a manual mapping — yet more code to maintain:
-
-public PaymentLogger getLogger(Payment p) {
-    if (p instanceof CreditCardPayment) return new CreditCardLogger();
-    if (p instanceof PayPalPayment)     return new PayPalLogger();
-    if (p instanceof BitcoinPayment)    return new BitcoinLogger();
-    throw new IllegalArgumentException("No logger for: " + p.getClass());
-}
-
-// ❌ Now add "BankTransfer" payment:
-//    → Must add BankTransferPayment  (hierarchy 1)
-//    → Must add BankTransferLogger   (hierarchy 2)  ← easy to forget!
-//    → Must add another if() branch in getLogger()  ← easy to forget!
-//    Three places to touch. Every. Single. Time.`,
-        good: `// SOLUTION: Collapse the two hierarchies into one.
-// Each Payment class is responsible for logging itself.
-// There is no separate Logger hierarchy at all.
-
-public abstract class Payment {
-    protected final double amount;
-    public Payment(double amount) { this.amount = amount; }
-
-    public abstract void process();
-
-    // ✅ Logging belongs here — it's about THIS payment type.
-    //    Each subclass knows exactly what to log about itself.
-    public abstract void log();
-}
-
-public class CreditCardPayment extends Payment {
-    private final String last4digits;
-
-    public CreditCardPayment(double amount, String last4digits) {
-        super(amount);
-        this.last4digits = last4digits;
-    }
-    public void process() {
-        System.out.println("Charging $" + amount + " to card ending in " + last4digits);
-    }
-    public void log() {
-        System.out.println("[LOG] Credit card •••• " + last4digits + " — $" + amount);
-    }
-}
-
-public class PayPalPayment extends Payment {
-    private final String email;
-
-    public PayPalPayment(double amount, String email) {
-        super(amount);
-        this.email = email;
-    }
-    public void process() { System.out.println("Sending $" + amount + " to " + email + " via PayPal"); }
-    public void log()     { System.out.println("[LOG] PayPal → " + email + " — $" + amount); }
-}
-
-public class BitcoinPayment extends Payment {
-    private final String walletAddress;
-
-    public BitcoinPayment(double amount, String walletAddress) {
-        super(amount);
-        this.walletAddress = walletAddress;
-    }
-    public void process() { System.out.println("Broadcasting $" + amount + " to " + walletAddress); }
-    public void log()     { System.out.println("[LOG] Bitcoin → " + walletAddress + " — $" + amount); }
-}
-
-// ─── ADDING A NEW PAYMENT TYPE ────────────────────────────────────────────
-// ✅ Add BankTransfer? Just ONE new class. Nothing else to touch.
-
-public class BankTransferPayment extends Payment {
-    private final String accountNumber;
-
-    public BankTransferPayment(double amount, String accountNumber) {
-        super(amount);
-        this.accountNumber = accountNumber;
-    }
-    public void process() { System.out.println("Transferring $" + amount + " to account " + accountNumber); }
-    public void log()     { System.out.println("[LOG] Bank transfer → " + accountNumber + " — $" + amount); }
-}
-
-// ─── USAGE ────────────────────────────────────────────────────────────────
-// No mapping needed. No parallel class needed. Just use it.
-
-List<Payment> payments = List.of(
-    new CreditCardPayment(120.00, "4242"),
-    new PayPalPayment(45.00, "user@example.com"),
-    new BitcoinPayment(300.00, "1A2B3C4D"),
-    new BankTransferPayment(500.00, "BD1234567890")
-);
-
-for (Payment p : payments) {
-    p.process(); // each knows how to process itself
-    p.log();     // each knows how to log itself
-}
-
-// Output:
-// Charging $120.0 to card ending in 4242
-// [LOG] Credit card •••• 4242 — $120.0
-// Sending $45.0 to user@example.com via PayPal
-// [LOG] PayPal → user@example.com — $45.0
-// Broadcasting $300.0 to 1A2B3C4D
-// [LOG] Bitcoin → 1A2B3C4D — $300.0
-// Transferring $500.0 to account BD1234567890
-// [LOG] Bank transfer → BD1234567890 — $500.0`,
-      },
-      {
-        name: "Shotgun Surgery",
-        oneliner: "A single conceptual change — like updating a tax rate or a base URL — requires small edits scattered across many unrelated classes, making it easy to miss one.",
-        bad: `// Change the tax rate or payment URL? Edit 6 files. Miss one = bug.
-public class Invoice {
-    public double getTotal(double subtotal) { return subtotal + subtotal * 0.15; }
-    public String getPaymentUrl(String id)  { return "https://pay.myapp.com/invoice/" + id; }
-}
-
-public class Receipt {
-    public double getGrandTotal(double amount) { return amount + amount * 0.15; }
-    public String getReceiptLink(String id)    { return "https://pay.myapp.com/receipt/" + id; }
-}
-
-public class Quote {
-    public double getPriceWithTax(double price) { return price + price * 0.15; }
-}
-
-public class Cart {
-    public void checkout(double subtotal, String cartId) {
-        double total = subtotal + subtotal * 0.15;
-        redirect("https://pay.myapp.com/checkout/" + cartId);
-    }
-}`,
-        good: `// One place to change. Zero chance of missing a spot.
-public class Config {
-    public static final double TAX_RATE     = 0.15;
-    public static final String PAYMENT_HOST = "https://pay.myapp.com";
-}
-
-public class TaxService {
-    public static double apply(double amount) { return amount + amount * Config.TAX_RATE; }
-    public static String rateLabel() { return (int)(Config.TAX_RATE * 100) + "%"; }
-}
-
-public class PaymentLinks {
-    public static String invoice(String id)  { return Config.PAYMENT_HOST + "/invoice/"  + id; }
-    public static String receipt(String id)  { return Config.PAYMENT_HOST + "/receipt/"  + id; }
-    public static String checkout(String id) { return Config.PAYMENT_HOST + "/checkout/" + id; }
-    public static String pay(String id)      { return Config.PAYMENT_HOST + "/pay/"      + id; }
-}
-
-// All classes now read from the same source of truth:
-public class Invoice {
-    public double getTotal(double subtotal) { return TaxService.apply(subtotal); }
-    public String getPaymentUrl(String id)  { return PaymentLinks.invoice(id); }
-}
-
-public class Cart {
-    public void checkout(double subtotal, String cartId) {
-        double total = TaxService.apply(subtotal);
-        redirect(PaymentLinks.checkout(cartId));
-    }
-}`,
-      },
-    ],
+// Adding Triangle? One new class. Zero existing edits.
+class Triangle extends Shape {
+  final double b, h;
+  double area()  { return 0.5 * b * h; }
+  String label() { return "Triangle"; }
+  String color() { return "#fbbf24"; }
+}`
   },
   {
-    category: "Dispensables",
-    color: "#74c0fc",
-    items: [
-      {
-        name: "Comments",
-        oneliner: "Comments that explain what the code is doing rather than why, compensating for unclear naming and poor structure instead of actually fixing them.",
-        bad: `// Function to process payment
-public boolean p(double a, String b, int c, int d) {
-    // Check if amount is valid
-    if (a <= 0) {
-        return false; // Return false if invalid
-    }
-    // Check if card is not expired
-    // Get current year and month
-    int y = LocalDate.now().getYear();
-    int m = LocalDate.now().getMonthValue();
-    // Compare with expiry
-    if (c < y || (c == y && d < m)) {
-        return false; // Card expired
-    }
-    // Calculate fee — 2.9% + 30 cents
-    double f = a * 0.029 + 0.30;
-    // Call the gateway
-    gateway.charge(b, a + f);
-    return true; // success
+    category: "OO Abusers", categoryIcon: "🔀",
+    name: "Temporary Field",
+    subtitle: "Instance fields that are only set and used in certain scenarios",
+    explanation: "A class has a field that sits null 90% of the time, then gets populated inside one specific method, used briefly, and becomes meaningless again. This is hidden state — you can't look at an instance and trust that its fields mean anything without knowing which code path was taken. These temporary values usually belong in a local variable or a dedicated context object.",
+    tags: ["State Management", "Null Safety", "Clarity"],
+    badNote: "reportLines and reportTitle are null after construction. Any method that accidentally reads them at the wrong time gets a NullPointerException.",
+    bad: `class ReportGenerator {
+
+  // These fields are NULL most of the time.
+  List<String> reportLines;   // ← null except during export
+  String reportTitle;         // ← null except during export
+  String reportFooter;        // ← null except during export
+
+  void exportPdf() {
+    reportTitle  = "Monthly Report — " + LocalDate.now();
+    reportFooter = "Confidential";
+    reportLines  = buildLines();
+
+    pdfLib.render(reportTitle, reportLines, reportFooter);
+
+    // Must remember to clean up:
+    reportLines  = null;
+    reportTitle  = null;
+    reportFooter = null;
+  }
+
+  void exportCsv() {
+    // reportLines is null here!
+    csvLib.write(reportLines); // ← CRASH
+  }
 }`,
-        good: `private static final double GATEWAY_FEE_RATE  = 0.029;
-private static final double GATEWAY_FEE_FIXED = 0.30;
+    goodNote: "ReportContext bundles the temporary data for exactly one export run. No field ever sits null.",
+    good: `class ReportContext {
+  final String title;
+  final String footer;
+  final List<String> lines;
 
-public boolean processPayment(double amount, String cardNumber,
-                              int expiryYear, int expiryMonth) {
-    if (!isValidAmount(amount))               return false;
-    if (isCardExpired(expiryYear, expiryMonth)) return false;
-    gateway.charge(cardNumber, amount + gatewayFee(amount));
-    return true;
+  ReportContext(String title, String footer,
+                List<String> lines) {
+    this.title  = title;
+    this.footer = footer;
+    this.lines  = List.copyOf(lines);
+  }
 }
 
-private boolean isValidAmount(double amount) {
-    return amount > 0;
-}
+class ReportGenerator {
 
-private boolean isCardExpired(int expiryYear, int expiryMonth) {
-    LocalDate now = LocalDate.now();
-    return expiryYear < now.getYear()
-        || (expiryYear == now.getYear() && expiryMonth < now.getMonthValue());
-}
+  void exportPdf() {
+    ReportContext ctx = buildContext();
+    pdfLib.render(ctx.title, ctx.lines, ctx.footer);
+  }
 
-private double gatewayFee(double amount) {
-    return amount * GATEWAY_FEE_RATE + GATEWAY_FEE_FIXED;
-}`,
-      },
-      {
-        name: "Duplicate Code",
-        oneliner: "The same logic copy-pasted into multiple places, so any bug fix or rule change must be applied everywhere — and someone will inevitably miss a spot.",
-        bad: `// Discount logic copy-pasted into three classes.
-// Change "VIP = 20% off" to "VIP = 25% off" — someone will miss one.
-public class OnlineCheckout {
-    public double applyDiscount(User user, double price) {
-        if ("vip".equals(user.getTier()))     return price * 0.80;
-        if ("premium".equals(user.getTier())) return price * 0.90;
-        if (user.getLoyaltyPoints() > 500)    return price * 0.95;
-        return price;
-    }
-}
+  void exportCsv() {
+    ReportContext ctx = buildContext();
+    csvLib.write(ctx.lines);
+  }
 
-public class InStoreCheckout {
-    public double applyDiscount(Customer customer, double amount) {
-        if ("vip".equals(customer.getTier()))     return amount * 0.80;
-        if ("premium".equals(customer.getTier())) return amount * 0.90;
-        if (customer.getLoyaltyPoints() > 500)    return amount * 0.95;
-        return amount;
-    }
-}
-
-public class MobileAppCheckout {
-    public double getDiscountedPrice(Profile profile, double basePrice) {
-        // same logic, different variable names — guaranteed to drift
-        if ("vip".equals(profile.getTier()))     return basePrice * 0.80;
-        if ("premium".equals(profile.getTier())) return basePrice * 0.90;
-        if (profile.getLoyaltyPoints() > 500)    return basePrice * 0.95;
-        return basePrice;
-    }
-}`,
-        good: `// ONE place. Change once, fixed everywhere.
-public class DiscountPolicy {
-    private static final int LOYALTY_THRESHOLD = 500;
-
-    public static double apply(UserProfile user, double price) {
-        if ("vip".equals(user.getTier()))                    return price * 0.80;
-        if ("premium".equals(user.getTier()))                return price * 0.90;
-        if (user.getLoyaltyPoints() > LOYALTY_THRESHOLD)    return price * 0.95;
-        return price;
-    }
-
-    public static String describeFor(UserProfile user) {
-        if ("vip".equals(user.getTier()))                 return "VIP 20% discount";
-        if ("premium".equals(user.getTier()))             return "Premium 10% discount";
-        if (user.getLoyaltyPoints() > LOYALTY_THRESHOLD) return "Loyalty 5% discount";
-        return "No discount";
-    }
-}
-
-public class OnlineCheckout {
-    public double applyDiscount(UserProfile u, double p)  { return DiscountPolicy.apply(u, p); }
-}
-public class InStoreCheckout {
-    public double applyDiscount(UserProfile u, double p)  { return DiscountPolicy.apply(u, p); }
-}
-public class MobileAppCheckout {
-    public double getDiscountedPrice(UserProfile u, double p) { return DiscountPolicy.apply(u, p); }
-}`,
-      },
-      {
-        name: "Data Class",
-        oneliner: "A class that only holds fields and getters, while all the logic that naturally belongs to it is scattered across other classes that operate on its data.",
-        bad: `// DateRange is a passive bag of data.
-// All logic that belongs to it is scattered across the codebase.
-public class DateRange {
-    private LocalDate startDate, endDate;
-    public DateRange(LocalDate startDate, LocalDate endDate) {
-        this.startDate = startDate; this.endDate = endDate;
-    }
-    public LocalDate getStart() { return startDate; }
-    public LocalDate getEnd()   { return endDate; }
-}
-
-// Business logic scattered everywhere:
-public long getDurationInDays(DateRange range) {
-    return ChronoUnit.DAYS.between(range.getStart(), range.getEnd());
-}
-public boolean isDateInRange(DateRange range, LocalDate date) {
-    return !date.isBefore(range.getStart()) && !date.isAfter(range.getEnd());
-}
-public boolean doRangesOverlap(DateRange r1, DateRange r2) {
-    return !r1.getStart().isAfter(r2.getEnd()) && !r1.getEnd().isBefore(r2.getStart());
-}
-public String formatRange(DateRange range) {
-    return range.getStart() + " – " + range.getEnd();
-}`,
-        good: `// DateRange owns its own behavior. No logic scattered outside.
-public class DateRange {
-    private final LocalDate startDate, endDate;
-
-    public DateRange(LocalDate startDate, LocalDate endDate) {
-        if (endDate.isBefore(startDate))
-            throw new IllegalArgumentException("End must be after start");
-        this.startDate = startDate; this.endDate = endDate;
-    }
-
-    public long durationInDays() {
-        return ChronoUnit.DAYS.between(startDate, endDate);
-    }
-
-    public boolean contains(LocalDate date) {
-        return !date.isBefore(startDate) && !date.isAfter(endDate);
-    }
-
-    public boolean overlaps(DateRange other) {
-        return !startDate.isAfter(other.endDate) && !endDate.isBefore(other.startDate);
-    }
-
-    public DateRange extend(int days) {
-        return new DateRange(startDate, endDate.plusDays(days));
-    }
-
-    @Override public String toString() { return startDate + " – " + endDate; }
-}
-
-DateRange sprint = new DateRange(
-    LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 14));
-System.out.println(sprint.durationInDays());                        // 13
-System.out.println(sprint.contains(LocalDate.of(2024, 1, 7)));     // true`,
-      },
-      {
-        name: "Dead Code",
-        oneliner: "Variables, functions, or classes that are no longer called by anything but remain in the codebase, adding noise and making readers wonder if they're missing something.",
-        bad: `public class UserService {
-    private final Map<String, User> cache = new HashMap<>();
-
-    public User getUser(String id) { return db.findUser(id); }
-
-    // Added during a caching experiment, never removed:
-    public User getUserCached(String id) {
-        if (cache.containsKey(id)) return cache.get(id);
-        User user = db.findUser(id);
-        cache.put(id, user);
-        return user;
-    }
-
-    // Was used before we switched to OAuth:
-    public boolean validatePassword(String plain, String hash) {
-        return BCrypt.checkpw(plain, hash);
-    }
-    public String hashPassword(String plain) {
-        return BCrypt.hashpw(plain, BCrypt.gensalt(10));
-    }
-    public String generateSessionToken()      { return UUID.randomUUID().toString(); }
-    public void   invalidateSession(String t) { db.deleteSession(t); }
-
-    // Left over from a descoped feature:
-    public String exportUserDataAsXML(User user) {
-        return "<user><name>" + user.getName()
-            + "</name><email>" + user.getEmail() + "</email></user>";
-    }
-
-    public User updateUser(String id, Map<String, Object> data) {
-        return db.updateUser(id, data);
-    }
-}`,
-        good: `public class UserService {
-    public User getUser(String id)                          { return db.findUser(id); }
-    public User updateUser(String id, Map<String, Object> data) { return db.updateUser(id, data); }
-}
-
-// Rule of thumb: if it's not called, delete it.
-// Git history preserves it if you ever need it back.
-// Commented-out code is worse — it's dead code with noise added.`,
-      },
-      {
-        name: "Lazy Class",
-        oneliner: "A class so thin — often just one or two trivial methods — that it adds an indirection layer without providing enough value to justify being a separate abstraction.",
-        bad: `// Three separate files, three imports, for things that are
-// just thin wrappers around a single expression.
-public class CelsiusConverter {
-    public double toCelsius(double f) { return (f - 32) * 5.0 / 9; }
-}
-public class FahrenheitConverter {
-    public double toFahrenheit(double c) { return c * 9.0 / 5 + 32; }
-}
-public class KelvinConverter {
-    public double toKelvin(double c) { return c + 273.15; }
-}
-
-// Three classes, three files, three imports for three one-liners.
-new CelsiusConverter().toCelsius(98.6);`,
-        good: `// Option A: A utility class with static methods (no instantiation needed)
-public final class Temperature {
-    private Temperature() {} // utility class, not meant to be instantiated
-
-    public static double toCelsius(double f)    { return (f - 32) * 5.0 / 9; }
-    public static double toFahrenheit(double c) { return c * 9.0 / 5 + 32; }
-    public static double toKelvin(double c)     { return c + 273.15; }
-    public static double toRankine(double c)    { return (c + 273.15) * 9.0 / 5; }
-}
-
-Temperature.toCelsius(98.6); // 37.0
-
-// Option B: A value object (justified class) — carries value and unit,
-// enables conversions and comparisons on the object itself:
-public class TemperatureValue {
-    private final double value;
-    private final String unit; // "C" or "F"
-
-    public TemperatureValue(double value, String unit) {
-        this.value = value; this.unit = unit;
-    }
-    public double inCelsius() {
-        return "C".equals(unit) ? value : (value - 32) * 5.0 / 9;
-    }
-    public double inFahrenheit() {
-        return "F".equals(unit) ? value : inCelsius() * 9.0 / 5 + 32;
-    }
-    @Override public String toString() { return value + "°" + unit; }
-}
-
-TemperatureValue bodyTemp = new TemperatureValue(98.6, "F");
-System.out.printf("%.1f°C%n", bodyTemp.inCelsius()); // 37.0°C`,
-      },
-      {
-        name: "Speculative Generality",
-        oneliner: "Abstractions, extension hooks, and plugin systems added to handle hypothetical future requirements that never actually arrive, leaving the codebase more complex for no gain.",
-        bad: `// "We'll definitely need strategies and factories someday."
-// Today: one report type, one format, zero plugins.
-public abstract class AbstractReportGenerator {
-    protected abstract List<?> fetchData(Map<String, Object> params);
-    protected abstract List<?> applyStrategy(List<?> data, ReportStrategy strategy);
-    protected abstract String  format(List<?> data, ReportFormatter formatter);
-
-    public String generate(Map<String, Object> params,
-                           ReportStrategy strategy, ReportFormatter formatter) {
-        List<?> data = fetchData(params);
-        return format(applyStrategy(data, strategy), formatter);
-    }
-}
-
-public class ConcreteReportGeneratorFactory {
-    public AbstractReportGenerator createGenerator(String type) {
-        // Only ever called with "sales". One real case.
-        if ("sales".equals(type)) return new SalesReportGenerator();
-        throw new IllegalArgumentException("Unknown generator type");
-    }
-}
-
-public class SalesReportGenerator extends AbstractReportGenerator {
-    protected List<?> fetchData(Map<String, Object> p) { return db.query("SELECT * FROM sales"); }
-    protected List<?> applyStrategy(List<?> data, ReportStrategy s) {
-        return s != null ? s.process(data) : data;
-    }
-    protected String format(List<?> data, ReportFormatter f) {
-        return f != null ? f.format(data) : data.toString();
-    }
-}`,
-        good: `// YAGNI: You Aren't Gonna Need It.
-// Build for what exists. Refactor when a second case arrives.
-public class SalesReportGenerator {
-    public String generate(Map<String, Object> params) {
-        List<SalesRecord> data = db.query(
-            "SELECT * FROM sales WHERE month = ?", params.get("month"));
-        return format(data);
-    }
-
-    private String format(List<SalesRecord> data) {
-        return data.stream()
-            .map(r -> r.getProduct() + ": $" + String.format("%,.0f", r.getRevenue()))
-            .collect(Collectors.joining("\n"));
-    }
-}
-
-// When a second report type is needed, THEN extract an abstraction.
-// The abstraction will be informed by two real cases — not imagined ones.`,
-      },
-    ],
+  private ReportContext buildContext() {
+    return new ReportContext(
+      "Monthly Report — " + LocalDate.now(),
+      "Confidential",
+      buildLines()
+    );
+  }
+}`
   },
   {
-    category: "Couplers",
-    color: "#da77f2",
-    items: [
-      {
-        name: "Feature Envy",
-        oneliner: "A method that spends most of its time reaching into another class's data to do its work, which is a strong signal it belongs in that other class instead.",
-        bad: `// Order.calculateShippingCost() is basically a Customer method
-// that got lost and ended up in the wrong class.
-public class Customer {
-    private boolean isPremium;
-    private Address address; // has country, isRemote fields
-    public boolean isPremium()  { return isPremium; }
-    public Address getAddress() { return address; }
+    category: "OO Abusers", categoryIcon: "🔀",
+    name: "Refused Bequest",
+    subtitle: "A subclass that inherits methods it doesn't need or want",
+    explanation: "Inheritance is a promise: \"I am a kind of you, so I do everything you do.\" Refused Bequest breaks that promise — the subclass inherits a bunch of methods, overrides half of them with empty bodies or exceptions, and silently pretends to be something it isn't. This violates the Liskov Substitution Principle. Usually the fix is to rethink the hierarchy: maybe the relationship should be composition, or the shared behavior should live in an interface.",
+    tags: ["LSP", "Inheritance", "Composition"],
+    badNote: "ReadOnlyList extends ArrayList but refuses 10+ methods with exceptions. You can pass it anywhere a List is expected and get a runtime crash.",
+    bad: `class ReadOnlyList<T> extends ArrayList<T> {
+
+  ReadOnlyList(Collection<T> source) {
+    super(source);
+  }
+
+  @Override public boolean add(T t) {
+    throw new UnsupportedOperationException("Read-only!");
+  }
+  @Override public void add(int i, T t) {
+    throw new UnsupportedOperationException("Read-only!");
+  }
+  @Override public T remove(int i) {
+    throw new UnsupportedOperationException("Read-only!");
+  }
+  @Override public boolean remove(Object o) {
+    throw new UnsupportedOperationException("Read-only!");
+  }
+  @Override public void clear() {
+    throw new UnsupportedOperationException("Read-only!");
+  }
+  // ...and 8 more overrides just to throw exceptions
 }
 
-public class Order {
-    private Customer customer;
-    private List<Item> items;
+// Bug: compiles fine, crashes at runtime:
+List<String> names = new ReadOnlyList<>(source);
+names.add("Alice"); // ← UnsupportedOperationException`,
+    goodNote: "ReadableList only exposes what a read-only list actually supports. The compiler rejects mutations before the program runs.",
+    good: `interface ReadableList<T> {
+  T       get(int index);
+  int     size();
+  boolean contains(T item);
+  boolean isEmpty();
+  List<T> snapshot();
+}
 
-    // Every line reaches into Customer's data:
-    public double calculateShippingCost() {
-        boolean isUS     = "US".equals(customer.getAddress().getCountry());
-        boolean isRemote = customer.getAddress().isRemote();
-        boolean premium  = customer.isPremium();
+class ImmutableList<T> implements ReadableList<T> {
+  private final List<T> data;
 
-        double base      = isUS ? 5.00 : 20.00;
-        double remoteFee = isRemote ? 12.00 : 0;
-        double discount  = premium ? 0.5 : 1.0;
-        return (base + remoteFee) * discount;
-    }
+  ImmutableList(Collection<T> source) {
+    this.data = List.copyOf(source);
+  }
 
-    public boolean isEligibleForFreeShipping() {
-        return customer.isPremium()
-            && "US".equals(customer.getAddress().getCountry())
-            && !customer.getAddress().isRemote();
-    }
+  public T       get(int i)    { return data.get(i); }
+  public int     size()        { return data.size(); }
+  public boolean contains(T t) { return data.contains(t); }
+  public boolean isEmpty()     { return data.isEmpty(); }
+  public List<T> snapshot()    { return new ArrayList<>(data); }
+}
+
+ReadableList<String> names = new ImmutableList<>(source);
+names.get(0);       // ✔ fine
+names.add("Alice"); // ✖ COMPILE ERROR`
+  },
+  {
+    category: "OO Abusers", categoryIcon: "🔀",
+    name: "Alternative Classes with Different Interfaces",
+    subtitle: "Two classes that do the same thing under different names",
+    explanation: "You have EmailSender with a send() method and MailDispatcher with a dispatch() method. They do the same job. No one decided to unify them, so both exist and callers have to know which one to use where. This is a missed abstraction — either these classes should share an interface, or one should be removed.",
+    tags: ["Abstraction", "Interface Design", "DRY"],
+    badNote: "Both classes send emails but have different method names. You can't swap one for the other or mock either cleanly in tests.",
+    bad: `// Legacy module
+class EmailSender {
+  void send(String to, String subject, String body) {
+    smtpClient.send(to, subject, body);
+  }
+}
+
+// Added by a different team later
+class MailDispatcher {
+  void dispatch(String recipient,
+                String title,
+                String content) {
+    sendGridClient.post(recipient, title, content);
+  }
+}
+
+// Callers are split across both:
+class WelcomeService {
+  EmailSender sender = new EmailSender();
+  void welcome(User u) {
+    sender.send(u.email, "Welcome!", "Hi " + u.name);
+  }
+}
+class InvoiceService {
+  MailDispatcher mailer = new MailDispatcher();
+  void invoice(User u, Invoice inv) {
+    mailer.dispatch(u.email, "Invoice", inv.toString());
+  }
 }`,
-        good: `// Move the behavior to where the data lives.
-public class Customer {
-    private boolean isPremium;
-    private Address address;
-
-    public double shippingCost() {
-        double base      = "US".equals(address.getCountry()) ? 5.00 : 20.00;
-        double remoteFee = address.isRemote() ? 12.00 : 0;
-        double discount  = isPremium ? 0.5 : 1.0;
-        return (base + remoteFee) * discount;
-    }
-
-    public boolean qualifiesForFreeShipping() {
-        return isPremium && "US".equals(address.getCountry()) && !address.isRemote();
-    }
+    goodNote: "One interface, two implementations. Swap the implementation in one place, all callers change automatically.",
+    good: `interface Mailer {
+  void send(String to, String subject, String body);
 }
 
-public class Order {
-    private Customer customer;
-    private List<Item> items;
+class SmtpMailer implements Mailer {
+  public void send(String to, String subject, String body) {
+    smtpClient.send(to, subject, body);
+  }
+}
 
-    public double calculateShippingCost() {
-        if (customer.qualifiesForFreeShipping()) return 0;
-        return customer.shippingCost();
-    }
+class SendGridMailer implements Mailer {
+  public void send(String to, String subject, String body) {
+    sendGridClient.post(to, subject, body);
+  }
+}
+
+class WelcomeService {
+  private final Mailer mailer;
+  WelcomeService(Mailer mailer) { this.mailer = mailer; }
+  void welcome(User u) {
+    mailer.send(u.email, "Welcome!", "Hi " + u.name);
+  }
+}
+// Switch SMTP → SendGrid: change one constructor arg.`
+  },
+  {
+    category: "Change Preventers", categoryIcon: "🔒",
+    name: "Divergent Change",
+    subtitle: "One class changes for multiple unrelated reasons",
+    explanation: "Divergent Change is the flip side of the Single Responsibility Principle violation: one class has to be opened and edited every time you change reporting logic, AND every time payment rules change, AND every time a new file format is supported. The symptom is a class that spans multiple \"reasons to change.\" The fix is to extract cohesive groupings.",
+    tags: ["SRP", "Cohesion", "Modularity"],
+    badNote: "OrderService is touched when auth logic changes, when report formats change, AND when export destinations change.",
+    bad: `class OrderService {
+
+  // REASON 1: Auth rules change
+  void loginWithPassword(String email, String pw) { ... }
+  void loginWithGoogle(String oauthToken) { ... }
+  void loginWithSSO(String samlAssertion) { ... }
+
+  // REASON 2: Report format changes
+  void generatePdfReport(DateRange range) { ... }
+  void generateCsvReport(DateRange range) { ... }
+  void generateExcelReport(DateRange range) { ... }
+
+  // REASON 3: Export destination changes
+  void exportToS3(byte[] data, String bucket) { ... }
+  void exportToGcs(byte[] data, String bucket) { ... }
+  void exportToAzureBlob(byte[] data) { ... }
+
+  // The actual order logic: buried in here
+  Order placeOrder(Cart cart) { ... }
+  void cancelOrder(String orderId) { ... }
 }`,
-      },
-      {
-        name: "Inappropriate Intimacy",
-        oneliner: "Two classes that directly read and mutate each other's internal fields, bypassing encapsulation so that neither class can change its internals without breaking the other.",
-        bad: `// Order directly pokes inside Customer's fields.
-// Customer has no control over its own state.
-public class Customer {
-    public String       name;
-    public List<Order>  orders = new ArrayList<>(); // supposed to be internal
-    public double       spent  = 0;                  // supposed to be internal
-    public String       tier   = "regular";
+    goodNote: "Each class opens for exactly one reason. Adding a new report format only touches ReportService.",
+    good: `class OrderService {
+  Order placeOrder(Cart cart) { ... }
+  void cancelOrder(String orderId) { ... }
+  OrderStatus status(String orderId) { ... }
 }
 
-public class Order {
-    private String id;
-    private double total;
+class AuthService {
+  void loginWithPassword(String email, String pw) { ... }
+  void loginWithGoogle(String oauthToken) { ... }
+  boolean hasPermission(User u, String action) { ... }
+}
 
-    public void attach(Customer customer) {
-        // Directly mutates Customer's internals:
-        customer.orders.add(this);
-        customer.spent += total;
-        if (customer.spent > 10000)
-            customer.tier = "vip"; // reaching even deeper!
-    }
+class ReportService {
+  byte[] generatePdf(DateRange range) { ... }
+  byte[] generateCsv(DateRange range) { ... }
+  byte[] generateExcel(DateRange range) { ... }
+}
 
-    public void detach(Customer customer) {
-        customer.orders.removeIf(o -> o.id.equals(this.id));
-        customer.spent -= total;
-        if (customer.spent <= 10000) customer.tier = "regular";
-    }
+class ExportService {
+  void toS3(byte[] data, String bucket) { ... }
+  void toGcs(byte[] data, String bucket) { ... }
+  void toAzureBlob(byte[] data) { ... }
+}`
+  },
+  {
+    category: "Change Preventers", categoryIcon: "🔒",
+    name: "Shotgun Surgery",
+    subtitle: "One change requires modifying many unrelated classes",
+    explanation: "One conceptual change — say, adding a timestamp to audit logs — forces you to open ten different classes scattered across the codebase. Each of those ten edits is a risk: you might miss one, or introduce a subtle inconsistency. Shotgun Surgery usually signals that behavior which should be centralized has been copy-pasted into many places over time.",
+    tags: ["DRY", "Coupling", "Centralization"],
+    badNote: "Adding a correlationId to audit logs means opening UserService, OrderService, PaymentService — and hoping you don't miss one.",
+    bad: `class UserService {
+  void createUser(User u) {
+    db.save(u);
+    AuditRecord r = new AuditRecord();
+    r.action    = "USER_CREATE";
+    r.entityId  = u.id;
+    r.timestamp = Instant.now();
+    // forgot correlationId ← silent gap
+    auditDb.insert(r);
+  }
+}
+
+class OrderService {
+  void placeOrder(Order o) {
+    db.save(o);
+    AuditRecord r = new AuditRecord();
+    r.action    = "ORDER_PLACE";
+    r.entityId  = o.id;
+    r.timestamp = Instant.now();
+    // forgot correlationId ← silent gap
+    auditDb.insert(r);
+  }
+}
+
+class PaymentService {
+  void charge(Payment p) {
+    gateway.charge(p);
+    AuditRecord r = new AuditRecord();
+    r.action    = "PAYMENT_CHARGE";
+    r.entityId  = p.id;
+    r.timestamp = Instant.now();
+    auditDb.insert(r);
+  }
 }`,
-        good: `// Customer controls its own state. Order just announces events.
-public class Customer {
-    private final List<Order> orders = new ArrayList<>();
-    private double spent = 0;
-    private String tier  = "regular";
-    public final String name;
+    goodNote: "Audit logic lives once in AuditService. Adding correlationId means editing one class — all callers get it automatically.",
+    good: `class AuditService {
+  private final String correlationId;
 
-    public Customer(String name) { this.name = name; }
+  AuditService(String correlationId) {
+    this.correlationId = correlationId;
+  }
 
-    public void addOrder(Order order) {
-        orders.add(order);
-        spent += order.getTotal();
-        updateTier();
+  void record(String action, String entityId) {
+    AuditRecord r = new AuditRecord();
+    r.action        = action;
+    r.entityId      = entityId;
+    r.timestamp     = Instant.now();
+    r.correlationId = correlationId; // one place to add
+    auditDb.insert(r);
+  }
+}
+
+class UserService {
+  private final AuditService audit;
+  void createUser(User u) {
+    db.save(u);
+    audit.record("USER_CREATE", u.id);
+  }
+}
+
+class OrderService {
+  private final AuditService audit;
+  void placeOrder(Order o) {
+    db.save(o);
+    audit.record("ORDER_PLACE", o.id);
+  }
+}
+
+class PaymentService {
+  private final AuditService audit;
+  void charge(Payment p) {
+    gateway.charge(p);
+    audit.record("PAYMENT_CHARGE", p.id);
+  }
+}`
+  },
+  {
+    category: "Change Preventers", categoryIcon: "🔒",
+    name: "Parallel Inheritance Hierarchies",
+    subtitle: "Every new subclass in one hierarchy demands a matching subclass in another",
+    explanation: "You have a Shape hierarchy and a ShapeRenderer hierarchy that must grow in lockstep. Every time you add a new Shape, you must also add a new Renderer. This is coupling across hierarchies that compounds your maintenance burden. The fix is usually to fold the behavior back into the type, or use a pattern like Visitor or Strategy to break the dependency.",
+    tags: ["Hierarchy Design", "Coupling", "Visitor Pattern"],
+    badNote: "Two hierarchies that must grow in lockstep. Miss a Renderer when adding a Shape and you get a runtime crash.",
+    bad: `abstract class Shape { String type; }
+class Circle    extends Shape { double r; }
+class Rectangle extends Shape { double w, h; }
+class Triangle  extends Shape { double b, h; }
+
+abstract class ShapeRenderer {
+  abstract void render(Shape s, Graphics g);
+}
+class CircleRenderer extends ShapeRenderer {
+  void render(Shape s, Graphics g) {
+    Circle c = (Circle) s; // unsafe cast
+    g.drawOval(0, 0, (int)c.r*2, (int)c.r*2);
+  }
+}
+class RectangleRenderer extends ShapeRenderer {
+  void render(Shape s, Graphics g) {
+    Rectangle r = (Rectangle) s;
+    g.drawRect(0, 0, (int)r.w, (int)r.h);
+  }
+}
+
+// Adding Pentagon?
+// Step 1: class Pentagon extends Shape { ... }
+// Step 2: class PentagonRenderer extends ShapeRenderer { ... }
+// Miss step 2 → runtime crash, no compile warning.`,
+    goodNote: "One hierarchy. Each Shape renders itself. Adding Pentagon means one class — no second hierarchy to keep in sync.",
+    good: `interface Shape {
+  void render(Graphics g);
+  double area();
+  String label();
+}
+
+class Circle implements Shape {
+  final double r;
+  public void render(Graphics g) {
+    g.drawOval(0, 0, (int)(r*2), (int)(r*2));
+  }
+  public double area()  { return Math.PI * r * r; }
+  public String label() { return "Circle"; }
+}
+
+class Rectangle implements Shape {
+  final double w, h;
+  public void render(Graphics g) {
+    g.drawRect(0, 0, (int)w, (int)h);
+  }
+  public double area()  { return w * h; }
+  public String label() { return "Rectangle"; }
+}
+
+// Adding Pentagon? ONE class, not two:
+class Pentagon implements Shape {
+  final double side;
+  public void render(Graphics g) { /* draw pentagon */ }
+  public double area()  { return (side*side * Math.sqrt(25+10*Math.sqrt(5))) / 4; }
+  public String label() { return "Pentagon"; }
+}`
+  },
+  {
+    category: "Dispensables", categoryIcon: "🗑️",
+    name: "Comments",
+    subtitle: "Comments that explain what the code does instead of why it does it",
+    explanation: "Comments aren't bad by nature — they're bad when they're doing a job that the code itself should do. When you need a comment to explain what a block does, that's often a sign you need a better method name. The worst kind are outdated comments that describe code that no longer exists — they actively mislead. Use comments to explain why, not what.",
+    tags: ["Readability", "Self-documenting Code", "Naming"],
+    badNote: "Every comment here explains what the next line does — which the code already says. The method name p() tells you nothing.",
+    bad: `// process list
+void p(List<int[]> a, int t) {
+  // loop through all rows
+  for (int[] r : a) {
+    // go through each element in the row
+    for (int v : r) {
+      // check if value is over threshold
+      if (v > t) {
+        // print asterisk for high value
+        System.out.print("* ");
+      } else {
+        // print the value with a space
+        System.out.print(v + " ");
+      }
     }
-
-    public void removeOrder(String orderId) {
-        orders.stream().filter(o -> o.getId().equals(orderId)).findFirst()
-            .ifPresent(order -> {
-                orders.remove(order);
-                spent -= order.getTotal();
-                updateTier();
-            });
-    }
-
-    private void updateTier() { tier = spent > 10000 ? "vip" : "regular"; }
-
-    public int    getOrderCount() { return orders.size(); }
-    public double getTotalSpent() { return spent; }
-    public String getTier()       { return tier; }
+    // move to next line after each row
+    System.out.println();
+  }
 }
 
-public class Order {
-    private final String id;
-    private final double total;
-    public Order(String id, double total) { this.id = id; this.total = total; }
-    public String getId()    { return id; }
-    public double getTotal() { return total; }
-}
-
-// Clean handshake — Order doesn't touch Customer internals:
-Customer customer = new Customer("Afif");
-Order order = new Order("ORD-1", 5000);
-customer.addOrder(order);`,
-      },
-      {
-        name: "Incomplete Library Class",
-        oneliner: "A third-party library that almost fits your needs, so workaround logic gets copy-pasted across multiple files instead of being extended once in a shared utility.",
-        bad: `// Guava/Streams don't have groupByMultiple out of the box.
-// So the workaround gets copy-pasted into every service file.
-
-// In UserService.java (copy-pasted):
-Map<String, List<User>> grouped = new HashMap<>();
-for (User user : users) {
-    String key = user.getCountry() + "-" + user.getDepartment();
-    grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(user);
-}
-
-// In ReportService.java — same logic, different variable names:
-Map<String, List<Record>> segmented = new HashMap<>();
-for (Record record : records) {
-    String k = record.getRegion() + "_" + record.getTeam();
-    segmented.computeIfAbsent(k, key -> new ArrayList<>()).add(record);
-}
-
-// In AnalyticsService.java — slightly different, now diverged:
-Map<String, List<DataPoint>> buckets = new HashMap<>();
-data.forEach(item -> {
-    String key = item.getCountry() + "|" + item.getDept();
-    buckets.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
-});`,
-        good: `// Extend the library once, cleanly, in a shared utility class.
-// CollectionUtils.java — imported everywhere, changed in one place.
-public class CollectionUtils {
-
-    // Groups by multiple key extractors joined with a separator
-    public static <T> Map<String, List<T>> groupByMultiple(
-            List<T> items,
-            List<Function<T, String>> keyExtractors,
-            String separator) {
-        return items.stream().collect(Collectors.groupingBy(
-            item -> keyExtractors.stream()
-                .map(f -> f.apply(item))
-                .collect(Collectors.joining(separator))
-        ));
-    }
-
-    // Plucks unique values for a given extractor across a collection
-    public static <T, R> List<R> uniqueValues(List<T> items, Function<T, R> extractor) {
-        return items.stream().map(extractor).distinct().collect(Collectors.toList());
-    }
-}
-
-// Usage — consistent, readable, single source of truth:
-Map<String, List<User>> byCountryAndDept = CollectionUtils.groupByMultiple(
-    users, List.of(User::getCountry, User::getDepartment), "-");
-
-Map<String, List<Record>> byRegionAndTeam = CollectionUtils.groupByMultiple(
-    records, List.of(Record::getRegion, Record::getTeam), "-");`,
-      },
-      {
-        name: "Message Chains",
-        oneliner: "A caller that navigates a long chain of object references to get what it needs, making it tightly coupled to the entire object graph and brittle to any structural change along the way.",
-        bad: `// The caller has to know the entire object graph.
-// Change any link in the chain and the caller breaks.
-public class Address  { private String city, zipCode, country; /* + getters */ }
-public class Profile  { private Address address; public Address getAddress() { return address; } }
-public class Customer { private Profile profile; public Profile getProfile() { return profile; } }
-public class Order    { private Customer customer; public Customer getCustomer() { return customer; } }
-
-// This code knows about Order → Customer → Profile → Address → every field:
-String city    = order.getCustomer().getProfile().getAddress().getCity();
-String zipCode = order.getCustomer().getProfile().getAddress().getZipCode();
-String country = order.getCustomer().getProfile().getAddress().getCountry();
-String label   = city + ", " + zipCode + ", " + country;`,
-        good: `// Tell, don't ask. Delegate through the chain.
-// Each class exposes only what its callers need.
-public class Address {
-    private final String city, zipCode, country;
-    public Address(String city, String zipCode, String country) {
-        this.city = city; this.zipCode = zipCode; this.country = country;
-    }
-    public String formatted() { return city + ", " + zipCode + ", " + country; }
-}
-
-public class Profile {
-    private final Address address;
-    public Profile(Address address) { this.address = address; }
-    public String shippingLabel() { return address.formatted(); }
-}
-
-public class Customer {
-    private final Profile profile;
-    public Customer(Profile profile) { this.profile = profile; }
-    public String shippingLabel() { return profile.shippingLabel(); }
-}
-
-public class Order {
-    private final Customer customer;
-    public Order(Customer customer) { this.customer = customer; }
-    public String shippingLabel() { return customer.shippingLabel(); }
-}
-
-// Caller only talks to its direct neighbor:
-String label = order.shippingLabel();
-// "Dhaka, 1207, Bangladesh"`,
-      },
-      {
-        name: "Middle Man",
-        oneliner: "A class whose every method does nothing but forward the call to another object, adding a layer of indirection with no logic, no validation, and no real purpose of its own.",
-        bad: `// Department does NOTHING. Every method is a one-line pass-through.
-// It exists only to add an indirection layer with zero value.
-public class Engineer {
-    public String writeCode()     { return "Code written"; }
-    public String reviewPR()      { return "PR reviewed"; }
-    public String deployToStage() { return "Deployed to staging"; }
-    public String writeTests()    { return "Tests written"; }
-}
-
-public class Department {
-    private final Engineer engineer = new Engineer();
-
-    public String writeCode()     { return engineer.writeCode(); }
-    public String reviewPR()      { return engineer.reviewPR(); }
-    public String deployToStage() { return engineer.deployToStage(); }
-    public String writeTests()    { return engineer.writeTests(); }
-}
-
-// Callers go through Department for no benefit:
-Department dept = new Department();
-dept.writeCode();  // just calls engineer.writeCode()
-dept.reviewPR();   // just calls engineer.reviewPR()`,
-        good: `public class Engineer {
-    private final String name;
-    private boolean busy;
-    public Engineer(String name) { this.name = name; }
-    public String writeCode()     { return "Code written"; }
-    public String reviewPR()      { return "PR reviewed"; }
-    public String deployToStage() { return "Deployed to staging"; }
-    public boolean isBusy()       { return busy; }
-    public String getName()       { return name; }
-}
-
-// Option A: Remove the middle man entirely.
-Engineer engineer = new Engineer("Bob");
-engineer.writeCode();
-
-// Option B: Keep Department only if it adds REAL value:
-public class Department {
-    private final List<Engineer> engineers;
-    public Department(List<Engineer> engineers) { this.engineers = engineers; }
-
-    // Actual added behavior — not just forwarding:
-    public Engineer assignTask(String task) {
-        Engineer available = engineers.stream()
-            .filter(e -> !e.isBusy())
-            .findFirst()
-            .orElseThrow(() -> new RuntimeException("No engineers available"));
-        AuditLog.write(task + " assigned to " + available.getName());
-        return available;
-    }
-
-    public int headcount() { return engineers.size(); }
+// calc — computes the thing
+double calc(double v, double r, int n) {
+  // use the formula
+  return v * Math.pow(1 + r/n, n);
 }`,
-      },
-    ],
+    goodNote: "Method names now tell the whole story. The one remaining comment explains WHY a decision was made.",
+    good: `void printBoardHighlightingAbove(List<int[]> board,
+                                  int threshold) {
+  for (int[] row : board) {
+    for (int cell : row) {
+      boolean isHot = cell > threshold;
+      System.out.print(isHot ? "* " : cell + " ");
+    }
+    System.out.println();
+  }
+}
+
+double compoundInterest(double principal,
+                        double annualRate,
+                        int compoundsPerYear) {
+  // Using discrete compounding (not continuous) because
+  // the banking partner's contract specifies it explicitly.
+  return principal
+    * Math.pow(1 + annualRate / compoundsPerYear,
+               compoundsPerYear);
+}
+
+boolean isAccountActive(User u) {
+  return u.status.equals("ACTIVE") && !u.isBanned;
+}`
+  },
+  {
+    category: "Dispensables", categoryIcon: "🗑️",
+    name: "Duplicate Code",
+    subtitle: "The same logic copy-pasted in multiple places",
+    explanation: "Duplication is the root of so many bugs. When you copy-paste logic and later find a bug in it, you have to remember every place it lives. You almost certainly won't. DRY — Don't Repeat Yourself — isn't just about elegance, it's about having one authoritative source of truth for every piece of logic.",
+    tags: ["DRY", "Maintainability", "Bug Risk"],
+    badNote: "The discount logic is copied verbatim in three places. Change the membership discount and you have three files to edit — and you'll miss at least one.",
+    bad: `class WebCheckout {
+  double calculateTotal(Cart cart) {
+    double sub = cart.subtotal();
+    if (cart.itemCount > 10)    sub *= 0.90;
+    if (cart.hasMembership)     sub *= 0.85;
+    if (cart.couponCode != null) sub -= 20;
+    return sub + (sub * 0.08);
+  }
+}
+
+class MobileCheckout {
+  double calculateTotal(Cart cart) {
+    double sub = cart.subtotal();
+    if (cart.itemCount > 10)    sub *= 0.90; // copy
+    if (cart.hasMembership)     sub *= 0.85; // copy
+    if (cart.couponCode != null) sub -= 20;  // copy
+    return sub + (sub * 0.08);
+  }
+}
+
+class PhoneAgentCheckout {
+  double calculateTotal(Cart cart) {
+    double sub = cart.subtotal();
+    if (cart.itemCount > 10)    sub *= 0.90;
+    if (cart.hasMembership)     sub *= 0.80; // ← BUG: 0.85→0.80
+    if (cart.couponCode != null) sub -= 20;
+    return sub + (sub * 0.08);
+  }
+}`,
+    goodNote: "One authoritative pricing engine. Change the rule once and every channel gets it instantly.",
+    good: `class PricingEngine {
+  private static final double BULK_DISCOUNT   = 0.90;
+  private static final double MEMBER_DISCOUNT = 0.85;
+  private static final double COUPON_VALUE    = 20.00;
+  private static final double TAX_RATE        = 0.08;
+
+  double calculateTotal(Cart cart) {
+    double sub = cart.subtotal();
+    if (cart.itemCount > 10)      sub *= BULK_DISCOUNT;
+    if (cart.hasMembership)       sub *= MEMBER_DISCOUNT;
+    if (cart.couponCode != null)  sub -= COUPON_VALUE;
+    return sub + (sub * TAX_RATE);
+  }
+}
+
+// All channels delegate — zero pricing logic of their own:
+class WebCheckout {
+  private final PricingEngine pricing;
+  double calculateTotal(Cart c) {
+    return pricing.calculateTotal(c);
+  }
+}
+class MobileCheckout {
+  private final PricingEngine pricing;
+  double calculateTotal(Cart c) {
+    return pricing.calculateTotal(c);
+  }
+}
+// Change MEMBER_DISCOUNT once → all channels updated.`
+  },
+  {
+    category: "Dispensables", categoryIcon: "🗑️",
+    name: "Lazy Class",
+    subtitle: "A class that doesn't do enough to justify its existence",
+    explanation: "Every class you add is a class someone has to understand. If a class exists to wrap a single method, or to hold one field, and nothing about its lifecycle or purpose makes it truly necessary, it's just overhead. Maybe it was created in anticipation of future growth that never came. YAGNI — You Aren't Gonna Need It. If it doesn't earn its place, inline its logic and delete it.",
+    tags: ["Simplicity", "YAGNI", "Overhead"],
+    badNote: "NameFormatter is a whole class, a whole file, a whole import — for one trivial string concatenation.",
+    bad: `class NameFormatter {
+  // This is it. This is the entire class.
+  String format(String firstName, String lastName) {
+    return lastName + ", " + firstName;
+  }
+}
+
+class UserGreeter {
+  private NameFormatter formatter = new NameFormatter();
+
+  String greet(User u) {
+    String name = formatter.format(u.firstName, u.lastName);
+    return "Welcome, " + name + "!";
+  }
+}
+
+// To understand greet(), open TWO files, trace
+// through TWO classes, to see:
+//   lastName + ", " + firstName
+// That's it.
+
+class UserController {
+  private UserGreeter greeter = new UserGreeter();
+  void showWelcome(User u) {
+    System.out.println(greeter.greet(u));
+  }
+}`,
+    goodNote: "Behavior moves into User where it belongs. Two unnecessary classes eliminated.",
+    good: `class User {
+  final String firstName, lastName, email;
+
+  String displayName() {
+    return lastName + ", " + firstName;
+  }
+
+  String welcomeMessage() {
+    return "Welcome, " + displayName() + "!";
+  }
+}
+
+class UserController {
+  void showWelcome(User u) {
+    System.out.println(u.welcomeMessage());
+  }
+}
+
+// NameFormatter: deleted.
+// UserGreeter:   deleted.
+// Two fewer files. Same outcome.`
+  },
+  {
+    category: "Dispensables", categoryIcon: "🗑️",
+    name: "Data Class",
+    subtitle: "A class with fields and getters/setters but no real behavior",
+    explanation: "A Data Class is just a bag of data — fields, getters, setters — and nothing else. Other classes manipulate it externally. This violates encapsulation: the data and the logic that belongs with it are separated. Often the behavior that operates on the data class should be moved into it. Simple DTOs at system boundaries are fine — but inside your domain model, a class without behavior is a missed opportunity.",
+    tags: ["Encapsulation", "Behavior", "Domain Model"],
+    badNote: "Rectangle is pure data. AreaCalculator, PerimeterCalculator, and SquareChecker all know about Rectangle's internals.",
+    bad: `class Rectangle {
+  private double width;
+  private double height;
+
+  public double getWidth()  { return width; }
+  public double getHeight() { return height; }
+  public void setWidth(double w)  { this.width = w; }
+  public void setHeight(double h) { this.height = h; }
+  // No behavior. Just getters and setters.
+}
+
+class AreaCalculator {
+  double calculate(Rectangle r) {
+    return r.getWidth() * r.getHeight();
+  }
+}
+class PerimeterCalculator {
+  double calculate(Rectangle r) {
+    return 2 * (r.getWidth() + r.getHeight());
+  }
+}
+class SquareChecker {
+  boolean isSquare(Rectangle r) {
+    return r.getWidth() == r.getHeight();
+  }
+}
+class RectangleScaler {
+  Rectangle scale(Rectangle r, double factor) {
+    Rectangle scaled = new Rectangle();
+    scaled.setWidth(r.getWidth() * factor);
+    scaled.setHeight(r.getHeight() * factor);
+    return scaled;
+  }
+}`,
+    goodNote: "Rectangle knows what it is and what it can do. Four external classes collapse into four methods.",
+    good: `class Rectangle {
+  private final double width;
+  private final double height;
+
+  Rectangle(double width, double height) {
+    if (width <= 0 || height <= 0)
+      throw new IllegalArgumentException("Positive only");
+    this.width  = width;
+    this.height = height;
+  }
+
+  double area()      { return width * height; }
+  double perimeter() { return 2 * (width + height); }
+  boolean isSquare() {
+    return Double.compare(width, height) == 0;
+  }
+  double diagonal()  { return Math.hypot(width, height); }
+
+  Rectangle scale(double factor) {
+    return new Rectangle(width * factor, height * factor);
+  }
+
+  @Override public String toString() {
+    return String.format("Rectangle(%.1f × %.1f)", width, height);
+  }
+}
+
+// Usage:
+Rectangle r = new Rectangle(4, 4);
+System.out.println(r.area());      // 16.0
+System.out.println(r.isSquare()); // true
+System.out.println(r.scale(2));   // Rectangle(8.0 × 8.0)`
+  },
+  {
+    category: "Dispensables", categoryIcon: "🗑️",
+    name: "Dead Code",
+    subtitle: "Code that is never executed and serves no purpose",
+    explanation: "Dead code is code that can never be reached: a method no one calls, a branch that's always false, a variable assigned but never read. It clutters the codebase and makes readers wonder if they're missing something. Version control exists precisely so you can delete with confidence — the history is always there if you need to revisit.",
+    tags: ["Cleanliness", "Complexity", "Cognitive Load"],
+    badNote: "Three forms of dead code: an unreachable else branch, a deprecated method nobody calls, and a field assigned but never read.",
+    bad: `class PaymentProcessor {
+
+  // Dead field: assigned, never read
+  private boolean legacyModeEnabled = false;
+
+  void process(Payment p) {
+    // p.amount is always positive before this call
+    if (p.amount > 0) {
+      chargeCard(p);
+    } else {
+      // DEAD: this branch can never execute
+      logger.warn("Negative amount: " + p.amount);
+      refundDesk.queue(p);
+    }
+  }
+
+  // Dead method: removed from all callers in 2022
+  @Deprecated
+  void processLegacy(Payment p) {
+    // Old V1 gateway — decommissioned Jan 2022.
+    // Kept "just in case" for 2+ years.
+    oldGateway.charge(p.cardNumber, p.amount);
+  }
+
+  // Dead method: fraud check pilot ended Q3 2023
+  boolean runExperimentalFraudCheck(Payment p) {
+    return fraudEngine.deepScan(p);
+  }
+}`,
+    goodNote: "Only live, reachable code remains. Git history preserves everything that was deleted.",
+    good: `class PaymentProcessor {
+
+  // No stale fields. No deprecated methods.
+  // No unreachable branches.
+
+  void process(Payment p) {
+    // Precondition guaranteed by PaymentValidator:
+    // p.amount > 0 always holds here.
+    chargeCard(p);
+  }
+
+  private void chargeCard(Payment p) {
+    ChargeResult result = gateway.charge(p.token, p.amount);
+    if (!result.success()) {
+      throw new PaymentFailedException(result.errorCode());
+    }
+    auditLog.record("PAYMENT_CHARGED", p.id);
+  }
+}
+
+// processLegacy()             → deleted (git: commit a3f91c)
+// runExperimentalFraudCheck() → deleted (git: commit b7d204)
+// legacyModeEnabled           → deleted (git: commit b7d204)`
+  },
+  {
+    category: "Dispensables", categoryIcon: "🗑️",
+    name: "Speculative Generality",
+    subtitle: "Abstraction added for imagined future needs that never arrive",
+    explanation: "\"We might need to support multiple databases someday\" — so a 5-class abstraction layer gets built. Years later, there's only ever been one database, and new developers have to wade through four interfaces and two abstract classes to understand one SQL query. YAGNI — You Aren't Gonna Need It. Build for what you need today. Pre-emptive abstraction is technical debt paid before any value is received.",
+    tags: ["YAGNI", "Over-engineering", "Simplicity"],
+    badNote: "Five classes to send one email. Every call bounces through AbstractMessageSender → AbstractAsyncSender. There is exactly one provider.",
+    bad: `interface MessageTransport {
+  void transmit(TransportPayload payload);
+}
+interface MessageFormatter {
+  TransportPayload format(String to, String subj, String body);
+}
+abstract class AbstractMessageSender {
+  protected MessageTransport transport;
+  protected MessageFormatter formatter;
+  abstract void send(String to, String subj, String body);
+}
+abstract class AbstractAsyncSender
+    extends AbstractMessageSender {
+  abstract void sendAsync(String to, String subj, String body);
+}
+
+// The one actual implementation:
+class SmtpEmailSender extends AbstractAsyncSender
+    implements MessageTransport {
+
+  void send(String to, String subj, String body) {
+    TransportPayload p = formatter.format(to, subj, body);
+    transmit(p);
+  }
+  void sendAsync(String to, String subj, String body) {
+    executor.submit(() -> send(to, subj, body));
+  }
+  public void transmit(TransportPayload p) {
+    smtpClient.send(p.to, p.subject, p.body);
+  }
+}
+
+// 5 types. 1 real provider. 0 plans to add another.`,
+    goodNote: "One class does the job. If a second provider is ever needed, extract the interface then — with real requirements.",
+    good: `class EmailService {
+  private final SmtpClient smtp;
+  private final String defaultFromAddress;
+
+  EmailService(SmtpClient smtp, String from) {
+    this.smtp               = smtp;
+    this.defaultFromAddress = from;
+  }
+
+  void send(String to, String subject, String body) {
+    smtp.send(defaultFromAddress, to, subject, body);
+  }
+
+  void sendAsync(String to, String subject, String body) {
+    CompletableFuture.runAsync(
+      () -> send(to, subject, body)
+    );
+  }
+}
+
+// When a second provider is actually needed,
+// extract an interface at that point:
+//   interface Mailer { void send(...); }
+//   class SmtpMailer   implements Mailer { ... }
+//   class TwilioMailer implements Mailer { ... }
+// Real requirements → better abstraction.`
+  },
+  {
+    category: "Couplers", categoryIcon: "🔗",
+    name: "Feature Envy",
+    subtitle: "A method that is more interested in another class's data than its own",
+    explanation: "A method that keeps reaching into another object to grab its data is a method that belongs somewhere else. If calculateShipping() lives in Order but spends all its time calling customer.getAddress().getCountry(), customer.getMembership().getTier(), and customer.isPrime() — it envies Customer. Methods should work with the data of the class they live in.",
+    tags: ["Coupling", "Cohesion", "Law of Demeter"],
+    badNote: "calculateShipping() lives in Order but touches 6 things from Customer. It belongs somewhere else.",
+    bad: `class Order {
+  Customer customer;
+  List<Item> items;
+  double subtotal;
+
+  // This method is jealous of Customer:
+  double calculateShipping() {
+    String country    = customer.getAddress().getCountry();
+    String state      = customer.getAddress().getState();
+    String tier       = customer.getMembership().getTier();
+    boolean isPrime   = customer.getMembership().isPrime();
+    boolean hasWaived = customer.getShippingWaiver().isActive();
+    int orderCount    = customer.getOrderHistory().size();
+
+    if (isPrime || hasWaived) return 0.0;
+
+    double base = country.equals("US") ? 5.99 : 24.99;
+    if (state.equals("HI") || state.equals("AK")) base += 10;
+    if (tier.equals("GOLD"))   base *= 0.70;
+    if (tier.equals("SILVER")) base *= 0.85;
+    if (orderCount > 50)       base *= 0.90;
+
+    return base;
+  }
+}`,
+    goodNote: "shippingRate() moves to Customer where all the data already lives. Order makes one clean call.",
+    good: `class Customer {
+  private final Address address;
+  private final Membership membership;
+  private final ShippingWaiver waiver;
+  private final List<Order> orderHistory;
+
+  // Shipping logic belongs HERE:
+  double shippingRate() {
+    if (membership.isPrime() || waiver.isActive())
+      return 0.0;
+
+    String country = address.getCountry();
+    String state   = address.getState();
+    String tier    = membership.getTier();
+    int    orders  = orderHistory.size();
+
+    double base = country.equals("US") ? 5.99 : 24.99;
+    if (state.equals("HI") || state.equals("AK")) base += 10;
+    if (tier.equals("GOLD"))   base *= 0.70;
+    if (tier.equals("SILVER")) base *= 0.85;
+    if (orders > 50)           base *= 0.90;
+
+    return base;
+  }
+}
+
+class Order {
+  Customer customer;
+  List<Item> items;
+
+  // One clean call — no envy:
+  double calculateShipping() {
+    return customer.shippingRate();
+  }
+}`
+  },
+  {
+    category: "Couplers", categoryIcon: "🔗",
+    name: "Inappropriate Intimacy",
+    subtitle: "Two classes that know too much about each other's internals",
+    explanation: "Some classes become like clingy friends — they dig into each other's private fields, call each other's internal helpers, and get entangled at every level. This makes them impossible to change independently. Classes should communicate through clean, public interfaces — not back-channel intimacy.",
+    tags: ["Encapsulation", "Coupling", "Interface Design"],
+    badNote: "OrderProcessor directly reads and mutates InventoryManager's private fields. Any refactor of InventoryManager breaks OrderProcessor immediately.",
+    bad: `class InventoryManager {
+  // Package-private so OrderProcessor can reach in:
+  Map<String, Integer> stockMap = new HashMap<>();
+  Order lastProcessedOrder;    // internal bookkeeping
+  int totalReservations = 0;
+  boolean lowStockAlertSent = false;
+}
+
+class OrderProcessor {
+  InventoryManager inventory;
+
+  void process(Order order) {
+    Map<String, Integer> stock = inventory.stockMap; // private!
+
+    for (Item item : order.items) {
+      int available = stock.getOrDefault(item.sku, 0);
+      if (available < item.qty)
+        throw new OutOfStockException(item.sku);
+
+      stock.put(item.sku, available - item.qty);    // dangerous
+      inventory.totalReservations += item.qty;       // internal!
+      inventory.lowStockAlertSent = false;            // internal!
+    }
+    inventory.lastProcessedOrder = order;             // internal!
+  }
+}`,
+    goodNote: "InventoryManager owns its state completely. Either class can be refactored internally without touching the other.",
+    good: `class InventoryManager {
+  private final Map<String, Integer> stockMap = new HashMap<>();
+  private int totalReservations = 0;
+
+  boolean hasStock(String sku, int qty) {
+    return stockMap.getOrDefault(sku, 0) >= qty;
+  }
+
+  void reserve(String sku, int qty) {
+    if (!hasStock(sku, qty))
+      throw new OutOfStockException(sku);
+    stockMap.merge(sku, -qty, Integer::sum);
+    totalReservations += qty;
+    checkLowStockThreshold(sku);
+  }
+
+  private void checkLowStockThreshold(String sku) {
+    if (stockMap.getOrDefault(sku, 0) < 5) alertOps(sku);
+  }
+}
+
+class OrderProcessor {
+  private final InventoryManager inventory;
+
+  void process(Order order) {
+    for (Item item : order.items) {
+      inventory.reserve(item.sku, item.qty); // clean call
+    }
+  }
+}`
+  },
+  {
+    category: "Couplers", categoryIcon: "🔗",
+    name: "Message Chains",
+    subtitle: "A long chain of calls navigating through intermediate objects",
+    explanation: "a.getB().getC().getD().doSomething() — each dot is a dependency on the internal structure of the object before it. Change any link and the chain breaks. It's a violation of the Law of Demeter: a method should only talk to its immediate collaborators, not navigate deep into their object graphs.",
+    tags: ["Law of Demeter", "Coupling", "Navigation"],
+    badNote: "The controller knows that an Order has a Customer, a Customer has an Address, and an Address has a Country. Change any relationship and the controller breaks.",
+    bad: `class OrderController {
+
+  void displayOrderSummary(Order order) {
+
+    // Chain 1: 4 hops
+    String countryCode = order
+      .getCustomer()
+      .getAddress()
+      .getCountry()
+      .getIsoCode();
+
+    // Chain 2: 4 hops
+    double multiplier = order
+      .getCustomer()
+      .getMembership()
+      .getDiscount()
+      .getShippingMultiplier();
+
+    // Chain 3: 5 hops
+    String supportTier = order
+      .getCustomer()
+      .getMembership()
+      .getSubscription()
+      .getTier()
+      .getLabel();
+
+    // Chain 4: 4 hops
+    String warehouse = order
+      .getItems().get(0)
+      .getProduct()
+      .getInventory()
+      .getPrimaryWarehouse();
+
+    renderSummary(countryCode, multiplier,
+                  supportTier, warehouse);
+  }
+}`,
+    goodNote: "Each class hides its navigation internally. The controller only talks to Order.",
+    good: `class Order {
+  private final Customer customer;
+  private final List<Item> items;
+
+  String customerCountryCode() {
+    return customer.countryCode();
+  }
+  double shippingMultiplier() {
+    return customer.shippingMultiplier();
+  }
+  String customerSupportTier() {
+    return customer.supportTierLabel();
+  }
+  String primaryWarehouse() {
+    return items.isEmpty() ? "NONE"
+      : items.get(0).primaryWarehouse();
+  }
+}
+
+class Customer {
+  private final Address address;
+  private final Membership membership;
+
+  String countryCode()        { return address.countryIsoCode(); }
+  double shippingMultiplier() { return membership.shippingMultiplier(); }
+  String supportTierLabel()   { return membership.supportTierLabel(); }
+}
+
+// Controller only talks to ONE object:
+class OrderController {
+  void displayOrderSummary(Order order) {
+    renderSummary(
+      order.customerCountryCode(),
+      order.shippingMultiplier(),
+      order.customerSupportTier(),
+      order.primaryWarehouse()
+    );
+  }
+}`
+  },
+  {
+    category: "Couplers", categoryIcon: "🔗",
+    name: "Middle Man",
+    subtitle: "A class that exists only to delegate to another class",
+    explanation: "Delegation is fine when a class adds value on top of what it delegates to. But when a class has ten methods and every single one just calls the same method on another object — it's a Middle Man. It adds a layer of indirection with no benefit, just extra files to navigate and extra confusion about why it exists.",
+    tags: ["Indirection", "Simplicity", "Delegation"],
+    badNote: "PersonService has 8 methods. Every single one just calls the same method on Person. Zero logic added.",
+    bad: `class PersonService {
+  private final Person person;
+  PersonService(Person p) { this.person = p; }
+
+  // 8 methods, 8 pure pass-throughs:
+  String  getName()         { return person.getName(); }
+  void    setName(String n) { person.setName(n); }
+  int     getAge()          { return person.getAge(); }
+  void    setAge(int a)     { person.setAge(a); }
+  String  getEmail()        { return person.getEmail(); }
+  void    setEmail(String e){ person.setEmail(e); }
+  String  getPhone()        { return person.getPhone(); }
+  void    setPhone(String p){ person.setPhone(p); }
+}
+
+class ProfileController {
+  private final PersonService personService;
+
+  void showProfile() {
+    // Must know TWO classes just to get a name:
+    String name  = personService.getName();  // → Person.getName()
+    int    age   = personService.getAge();   // → Person.getAge()
+    render(name, age);
+  }
+}`,
+    goodNote: "Talk to Person directly. Delegation IS valid when it adds something — caching or authorization, for example.",
+    good: `// No middle man — talk to Person directly:
+class ProfileController {
+  private final Person person;
+
+  void showProfile() {
+    render(person.getName(), person.getAge(), person.getEmail());
+  }
+}
+
+// Middle Man IS valid when it adds real value:
+class CachedPersonService {
+  private final Person person;
+  private final Cache  cache;
+
+  // This delegate actually DOES something:
+  String getName() {
+    return cache.getOrLoad(
+      "person:" + person.getId() + ":name",
+      () -> person.getName()   // ← adds caching
+    );
+  }
+
+  // Authorization is another valid reason:
+  void setEmail(User caller, String email) {
+    if (!caller.can("EDIT_PROFILE", person))
+      throw new AccessDeniedException();
+    person.setEmail(email);    // ← adds auth check
+  }
+}`
+  },
+  {
+    category: "Couplers", categoryIcon: "🔗",
+    name: "Incomplete Library Class",
+    subtitle: "A library class that doesn't provide what you need, so you hack around it",
+    explanation: "You're using a third-party library and it almost does what you need — but not quite. So you start writing static utility methods that operate on library objects, or you subclass library classes to bolt on missing behavior. These hacks accumulate. When the library updates, they break. The cleaner solution is to wrap the library in your own abstraction (Adapter pattern) so your additions live in a controlled, maintainable place.",
+    tags: ["Library Integration", "Adapter Pattern", "Encapsulation"],
+    badNote: "Static utility methods all depend on Apache Pair's internals. Upgrade the library and every PairUtils method might break.",
+    bad: `// Using Apache Commons Pair, but it's missing methods.
+// So we hack around it with static utilities:
+
+class PairUtils {
+  static <A,B> boolean hasNullValue(Pair<A,B> p) {
+    return p.getLeft() == null || p.getRight() == null;
+  }
+
+  static <A,B> String format(Pair<A,B> p) {
+    return p.getLeft() + " → " + p.getRight();
+  }
+
+  static <A,B> Pair<B,A> swap(Pair<A,B> p) {
+    return Pair.of(p.getRight(), p.getLeft());
+  }
+
+  static <A> boolean unorderedEqual(
+      Pair<A,A> p1, Pair<A,A> p2) {
+    return (p1.getLeft().equals(p2.getLeft()) &&
+            p1.getRight().equals(p2.getRight()))
+        || (p1.getLeft().equals(p2.getRight()) &&
+            p1.getRight().equals(p2.getLeft()));
+  }
+}
+
+// Apache Pair is now baked into every caller.`,
+    goodNote: "KeyValuePair wraps the library. Swap Apache Commons for anything by editing one class.",
+    good: `class KeyValuePair<K, V> {
+  private final K key;
+  private final V value;
+
+  KeyValuePair(K key, V value) {
+    this.key   = key;
+    this.value = value;
+  }
+
+  K key()   { return key; }
+  V value() { return value; }
+
+  boolean hasNullValue() {
+    return key == null || value == null;
+  }
+
+  String format() {
+    return key + " → " + value;
+  }
+
+  KeyValuePair<V, K> swap() {
+    return new KeyValuePair<>(value, key);
+  }
+
+  static <K,V> KeyValuePair<K,V> of(K k, V v) {
+    return new KeyValuePair<>(k, v);
+  }
+
+  @Override public String toString() { return format(); }
+}
+
+// Usage: clean, no library leaking into callers:
+var pair = KeyValuePair.of("userId", "USR-001");
+System.out.println(pair.format());       // userId → USR-001
+System.out.println(pair.hasNullValue()); // false
+var swapped = pair.swap();
+// Swap Apache Commons: edit ONE class.`
   },
 ];
 
-export default function CodeSmells() {
-  const [activeCategory, setActiveCategory] = useState(0);
-  const [activeItem, setActiveItem] = useState(0);
-  const [tab, setTab] = useState("bad");
+const categories: Array<{ name: string; icon: string; items: CodeSmell[] }> = [];
+const catMap: Record<string, { name: string; icon: string; items: CodeSmell[] }> = {};
+smells.forEach((s, i) => {
+  if (!catMap[s.category]) {
+    catMap[s.category] = { name: s.category, icon: s.categoryIcon, items: [] };
+    categories.push(catMap[s.category]);
+  }
+  catMap[s.category].items.push({ ...s, _index: i });
+});
 
-  const cat = smells[activeCategory];
-  const item = cat.items[activeItem];
+const COLORS = {
+  bg: "#0f1117",
+  sidebar: "#161b27",
+  card: "#1a2035",
+  border: "#252d40",
+  accent: "#5b8af5",
+  accent2: "#a78bfa",
+  accent3: "#34d399",
+  text: "#e2e8f0",
+  muted: "#7a8ba6",
+  codeBg: "#0d1117",
+  tagBg: "#1e2d4a",
+  bad: "#f87171",
+  good: "#34d399",
+};
 
-  const allItems = smells.flatMap(c => c.items);
-  const currentIndex = allItems.findIndex(i => i.name === item.name);
+function CodeBlock({ code, variant, note }) {
+  const isBad = variant === "bad";
+  const labelColor = isBad ? COLORS.bad : COLORS.good;
+  const labelBg = isBad ? "rgba(248,113,113,0.10)" : "rgba(52,211,153,0.10)";
+  const labelBorder = isBad ? "rgba(248,113,113,0.2)" : "rgba(52,211,153,0.2)";
 
   return (
-    <div style={{
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-      background: "#0d0d0d",
-      minHeight: "100vh",
-      color: "#e0e0e0",
-      display: "flex",
-      flexDirection: "column",
-    }}>
-      <div style={{ padding: "20px 28px 16px", borderBottom: "1px solid #1e1e1e", background: "#111" }}>
-        <div style={{ fontSize: 11, color: "#555", letterSpacing: 3, textTransform: "uppercase", marginBottom: 4 }}>
-          Code Smells Reference
+    <div style={{ display: "flex", flexDirection: "column", borderTop: isBad ? "none" : `2px solid ${COLORS.border}` }}>
+      <div style={{
+        display: "flex", alignItems: "flex-start", gap: 10,
+        padding: "10px 18px", background: labelBg,
+        borderBottom: `1px solid ${labelBorder}`,
+        flexWrap: "wrap",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: "50%",
+            background: labelColor, boxShadow: `0 0 6px ${labelColor}`,
+            display: "inline-block", flexShrink: 0,
+          }} />
+          <span style={{ color: labelColor, fontWeight: 700, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>
+            {isBad ? "Smelly" : "Refactored"}
+          </span>
         </div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", letterSpacing: -0.5 }}>
-          Bad → Good Examples · Java
+        <span style={{ color: COLORS.muted, fontSize: 12, fontStyle: "italic", lineHeight: 1.4 }}>{note}</span>
+      </div>
+      <pre style={{
+        margin: 0, padding: "20px 22px",
+        background: COLORS.codeBg,
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        fontSize: 13, lineHeight: 1.75, color: "#c9d4e8",
+        overflowX: "auto", whiteSpace: "pre",
+      }}>
+        {code}
+      </pre>
+    </div>
+  );
+}
+
+function SmellDetail({ smell, total, onPrev, onNext }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      {/* Header */}
+      <div style={{ paddingBottom: 20, borderBottom: `1px solid ${COLORS.border}` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: COLORS.accent2, marginBottom: 6 }}>
+          {smell.categoryIcon} {smell.category}
         </div>
+        <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.2, color: COLORS.text, marginBottom: 6 }}>
+          {smell.name}
+        </div>
+        <div style={{ fontSize: 14, color: COLORS.muted, fontStyle: "italic" }}>{smell.subtitle}</div>
       </div>
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <div style={{ width: 200, background: "#111", borderRight: "1px solid #1e1e1e", flexShrink: 0, overflowY: "auto", padding: "8px 0" }}>
-          {smells.map((cat, ci) => (
-            <div key={ci}>
-              <div style={{ padding: "10px 16px 4px", fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: cat.color, fontWeight: 700 }}>
-                {cat.category}
-              </div>
-              {cat.items.map((it, ii) => (
-                <div
-                  key={ii}
-                  onClick={() => { setActiveCategory(ci); setActiveItem(ii); setTab("bad"); }}
+      {/* Explanation */}
+      <Section title="What it is">
+        <div style={{
+          background: COLORS.card, border: `1px solid ${COLORS.border}`,
+          borderLeft: `3px solid ${COLORS.accent2}`,
+          borderRadius: 10, padding: "16px 20px",
+          color: "#c9d4e8", fontSize: 14, lineHeight: 1.8,
+        }}>
+          {smell.explanation}
+        </div>
+      </Section>
+
+      {/* Tags */}
+      <Section title="Signals">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {smell.tags.map(t => (
+            <span key={t} style={{
+              fontSize: 12, background: COLORS.tagBg,
+              border: `1px solid ${COLORS.border}`, color: COLORS.accent,
+              padding: "3px 10px", borderRadius: 20, fontWeight: 500,
+            }}>{t}</span>
+          ))}
+        </div>
+      </Section>
+
+      {/* Code */}
+      <Section title="Code Example">
+        <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${COLORS.border}` }}>
+          <CodeBlock code={smell.bad} variant="bad" note={smell.badNote} />
+          <CodeBlock code={smell.good} variant="good" note={smell.goodNote} />
+        </div>
+      </Section>
+
+      {/* Nav */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}` }}>
+        <NavBtn onClick={onPrev} disabled={smell._index === 0}>← Previous</NavBtn>
+        <span style={{ margin: "0 auto", fontSize: 12, color: COLORS.muted }}>
+          {smell._index + 1} / {total}
+        </span>
+        <NavBtn onClick={onNext} disabled={smell._index === total - 1}>Next →</NavBtn>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: COLORS.muted }}>
+          {title}
+        </span>
+        <div style={{ flex: 1, height: 1, background: COLORS.border }} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function NavBtn({ onClick, disabled, children }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: COLORS.card,
+        border: `1px solid ${hovered && !disabled ? COLORS.accent : COLORS.border}`,
+        color: hovered && !disabled ? COLORS.accent : COLORS.muted,
+        padding: "8px 16px", borderRadius: 8, fontSize: 13,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.35 : 1,
+        fontFamily: "inherit", transition: "all 0.15s",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function App() {
+  const [activeIndex, setActiveIndex] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const SIDEBAR_W = 240;
+  const HEADER_H = 54;
+
+  function showSmell(i) {
+    setActiveIndex(i);
+    setSidebarOpen(false);
+    window.scrollTo(0, 0);
+  }
+
+  const activeSmell = activeIndex !== null ? smells[activeIndex] : null;
+
+  return (
+    <div style={{ background: COLORS.bg, color: COLORS.text, minHeight: "100vh", fontFamily: "'Inter', system-ui, sans-serif", fontSize: 15, lineHeight: 1.65 }}>
+      {/* Header */}
+      <header style={{
+        height: HEADER_H, background: COLORS.sidebar,
+        borderBottom: `1px solid ${COLORS.border}`,
+        display: "flex", alignItems: "center", padding: "0 20px", gap: 12,
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+      }}>
+        <span style={{ fontSize: 20 }}>🦨</span>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Code Smells</div>
+          <div style={{ fontSize: 11, color: COLORS.muted }}>All 24 — explained with examples</div>
+        </div>
+        <span style={{
+          marginLeft: "auto", fontSize: 12, color: COLORS.muted,
+          background: COLORS.tagBg, padding: "3px 10px",
+          borderRadius: 20, border: `1px solid ${COLORS.border}`,
+        }}>
+          24 smells
+        </span>
+        {/* Mobile hamburger */}
+        <button
+          onClick={() => setSidebarOpen(o => !o)}
+          style={{
+            display: "none", background: "none", border: "none",
+            color: COLORS.muted, fontSize: 20, cursor: "pointer",
+            padding: "4px 8px",
+          }}
+          className="hamburger"
+        >
+          ☰
+        </button>
+      </header>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .sidebar { display: ${sidebarOpen ? "block" : "none"} !important; position: fixed !important; z-index: 90 !important; }
+          .hamburger { display: block !important; }
+          .main-content { margin-left: 0 !important; }
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: ${COLORS.border}; border-radius: 4px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+      `}</style>
+
+      {/* Sidebar */}
+      <aside className="sidebar" style={{
+        width: SIDEBAR_W, background: COLORS.sidebar,
+        borderRight: `1px solid ${COLORS.border}`,
+        position: "fixed", top: HEADER_H, bottom: 0,
+        overflowY: "auto", padding: "16px 0 40px",
+      }}>
+        {categories.map(cat => (
+          <div key={cat.name}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: 1,
+              textTransform: "uppercase", color: COLORS.muted,
+              padding: "10px 16px 4px", display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{ fontSize: 8 }}>▼</span>
+              {cat.icon} {cat.name}
+            </div>
+            {cat.items.map(smell => {
+              const isActive = activeIndex === smell._index;
+              return (
+                <button
+                  key={smell.name}
+                  onClick={() => showSmell(smell._index)}
                   style={{
-                    padding: "7px 16px", fontSize: 12, cursor: "pointer",
-                    background: activeCategory === ci && activeItem === ii ? "#1a1a1a" : "transparent",
-                    borderLeft: activeCategory === ci && activeItem === ii ? `2px solid ${cat.color}` : "2px solid transparent",
-                    color: activeCategory === ci && activeItem === ii ? "#fff" : "#666",
-                    transition: "all 0.15s", lineHeight: 1.4,
+                    display: "flex", alignItems: "center", gap: 8,
+                    width: "100%", padding: "7px 16px 7px 28px",
+                    background: isActive ? "rgba(91,138,245,0.12)" : "none",
+                    border: "none",
+                    borderLeft: `2px solid ${isActive ? COLORS.accent : "transparent"}`,
+                    color: isActive ? COLORS.accent : COLORS.muted,
+                    fontSize: 13, cursor: "pointer", textAlign: "left",
+                    fontWeight: isActive ? 600 : 400,
+                    fontFamily: "inherit", transition: "all 0.15s",
                   }}
+                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = COLORS.text; e.currentTarget.style.background = "rgba(91,138,245,0.07)"; } }}
+                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = COLORS.muted; e.currentTarget.style.background = "none"; } }}
                 >
-                  {it.name}
+                  {smell.name}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </aside>
+
+      {/* Main */}
+      <main className="main-content" style={{
+        marginLeft: SIDEBAR_W, marginTop: HEADER_H,
+        padding: "40px 48px 80px",
+        minHeight: `calc(100vh - ${HEADER_H}px)`,
+      }}>
+        {!activeSmell ? (
+          <div style={{ maxWidth: 700, display: "flex", flexDirection: "column", gap: 24, paddingTop: 20 }}>
+            <div>
+              <h1 style={{
+                fontSize: 32, fontWeight: 800, marginBottom: 12,
+                background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`,
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}>
+                Code Smells
+              </h1>
+              <p style={{ color: COLORS.muted, fontSize: 15, lineHeight: 1.75 }}>
+                Signs in source code that something might be wrong. They're not bugs — they're patterns that hint at deeper design problems. Each smell comes with a realistic before/after so you can see exactly what the problem looks like and what the fix achieves.
+              </p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 16 }}>
+              {categories.map(cat => (
+                <div
+                  key={cat.name}
+                  onClick={() => showSmell(cat.items[0]._index)}
+                  style={{
+                    background: COLORS.card, border: `1px solid ${COLORS.border}`,
+                    borderRadius: 10, padding: 20, cursor: "pointer",
+                    transition: "border-color 0.2s, transform 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.accent; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.transform = "none"; }}
+                >
+                  <div style={{ fontSize: 22, marginBottom: 8 }}>{cat.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{cat.name}</div>
+                  <div style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{cat.items.length} smells</div>
                 </div>
               ))}
             </div>
-          ))}
-        </div>
-
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ padding: "16px 24px", borderBottom: "1px solid #1e1e1e", background: "#111" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <span style={{ background: cat.color + "22", color: cat.color, fontSize: 10, padding: "2px 8px", borderRadius: 3, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
-                {cat.category}
-              </span>
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{item.name}</div>
-            <div style={{ fontSize: 12, color: "#888", fontStyle: "italic", lineHeight: 1.6 }}>// {item.oneliner}</div>
           </div>
-
-          <div style={{ display: "flex", borderBottom: "1px solid #1e1e1e", background: "#0f0f0f" }}>
-            {["bad", "good"].map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                padding: "10px 24px", background: tab === t ? "#1a1a1a" : "transparent",
-                border: "none",
-                borderBottom: tab === t ? `2px solid ${t === "bad" ? "#ff6b6b" : "#69db7c"}` : "2px solid transparent",
-                color: tab === t ? (t === "bad" ? "#ff6b6b" : "#69db7c") : "#555",
-                cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600,
-                letterSpacing: 1, textTransform: "uppercase",
-              }}>
-                {t === "bad" ? "❌  Bad Code" : "✅  Good Code"}
-              </button>
-            ))}
+        ) : (
+          <div style={{ maxWidth: 860 }}>
+            <SmellDetail
+              smell={activeSmell}
+              total={smells.length}
+              onPrev={() => showSmell(activeIndex - 1)}
+              onNext={() => showSmell(activeIndex + 1)}
+            />
           </div>
-
-          <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
-            <pre style={{
-              background: "#141414",
-              border: `1px solid ${tab === "bad" ? "#ff6b6b33" : "#69db7c33"}`,
-              borderRadius: 8, padding: 24, margin: 0, fontSize: 13, lineHeight: 1.8,
-              color: tab === "bad" ? "#ffb3b3" : "#c3fae8",
-              overflowX: "auto", whiteSpace: "pre",
-            }}>
-              {tab === "bad" ? item.bad : item.good}
-            </pre>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 24px", borderTop: "1px solid #1e1e1e", background: "#111" }}>
-            <button onClick={() => {
-              if (activeItem > 0) { setActiveItem(activeItem - 1); }
-              else if (activeCategory > 0) { const p = activeCategory - 1; setActiveCategory(p); setActiveItem(smells[p].items.length - 1); }
-              setTab("bad");
-            }} style={{ background: "#1e1e1e", border: "none", color: "#888", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
-              ← Prev
-            </button>
-            <span style={{ fontSize: 11, color: "#444", alignSelf: "center" }}>
-              {currentIndex + 1} / {allItems.length}
-            </span>
-            <button onClick={() => {
-              if (activeItem < cat.items.length - 1) { setActiveItem(activeItem + 1); }
-              else if (activeCategory < smells.length - 1) { setActiveCategory(activeCategory + 1); setActiveItem(0); }
-              setTab("bad");
-            }} style={{ background: "#1e1e1e", border: "none", color: "#888", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
-              Next →
-            </button>
-          </div>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 }
